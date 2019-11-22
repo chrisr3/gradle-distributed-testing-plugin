@@ -9,12 +9,12 @@ repositories {
 gradlePlugin {
     plugins {
         distributedTestingPlugin {
-            id = 'net.corda.testing.distributed-testing'
-            implementationClass = 'net.corda.testing.DistributedTesting'
+            id = 'com.r3.testing.distributed-testing'
+            implementationClass = 'com.r3.testing.DistributedTesting'
         }
         imageBuildingPlugin {
-            id = 'net.corda.testing.image-building'
-            implementationClass = 'net.corda.testing.ImageBuilding'
+            id = 'com.r3.testing.image-building'
+            implementationClass = 'com.r3.testing.ImageBuilding'
         }
     }
     automatedPublishing = false
