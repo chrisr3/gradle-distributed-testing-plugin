@@ -10,7 +10,7 @@ apply plugin: 'com.jfrog.artifactory'
 apply plugin: 'com.gradle.plugin-publish'
 
 group = 'com.r3.testing'
-version = '1.0'
+version = '1.1-SNAPSHOT'
 
 ext {
     vcsUrl = 'https://github.com/corda/gradle-distributed-testing-plugin'
