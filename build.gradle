@@ -1,5 +1,20 @@
+plugins {
+    id 'com.gradle.plugin-publish' version '0.10.1' apply false
+    id 'com.jfrog.artifactory' version '4.9.6'
+}
+
 apply plugin: 'groovy'
 apply plugin: 'java-gradle-plugin'
+apply plugin: 'maven-publish'
+apply plugin: 'com.jfrog.artifactory'
+apply plugin: 'com.gradle.plugin-publish'
+
+group = 'com.r3.testing'
+version = '1.0'
+
+ext {
+    vcsUrl = 'https://github.com/corda/gradle-distributed-testing-plugin'
+}
 
 repositories {
     mavenCentral()
@@ -17,14 +32,14 @@ gradlePlugin {
             implementationClass = 'com.r3.testing.ImageBuilding'
         }
     }
-    automatedPublishing = false
+    automatedPublishing = true
 }
 
 dependencies {
-    implementation "io.fabric8:kubernetes-client:4.4.1"
-    implementation 'org.apache.commons:commons-compress:1.19'
-    implementation "io.github.classgraph:classgraph:4.8.53"
     implementation "com.bmuschko:gradle-docker-plugin:5.0.0"
+    implementation "io.fabric8:kubernetes-client:4.4.1"
+    implementation "io.github.classgraph:classgraph:4.8.53"
+    implementation 'org.apache.commons:commons-compress:1.19'
     implementation 'org.apache.commons:commons-csv:1.1'
     implementation group: 'org.jetbrains', name: 'annotations', version: '13.0'
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.5.2"
@@ -41,6 +56,57 @@ tasks.withType(Test) {
     // We need the tests to share this module cache to prevent the
     // Gradle Test-Kit from downloading its own copy of Kotlin etc.
     systemProperty 'test.gradle.user.home', project.gradle.gradleUserHomeDir
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            groupId group
+
+            pom {
+                name = 'Distributed Testing Plugin'
+                description = 'Plugin that enables the paralellisation of tests using Docker and K8s'
+                url = vcsUrl
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'R3'
+                        name = 'R3'
+                        email = 'dev@corda.net'
+                    }
+                }
+                scm {
+                    url = vcsUrl
+                }
+            }
+        }
+    }
+}
+
+artifactory {
+    publish {
+        contextUrl = 'https://software.r3.com/artifactory'
+        repository {
+            repoKey = 'corda-dependencies'
+            username = System.getenv('CORDA_ARTIFACTORY_USERNAME') ?: System.getProperty('corda.artifactory.username')
+            password = System.getenv('CORDA_ARTIFACTORY_PASSWORD') ?: System.getProperty('corda.artifactory.password')
+        }
+
+        defaults {
+            publications('mavenJava')
+        }
+
+    }
+}
+
+artifactoryPublish {
+    dependsOn jar
 }
 
 wrapper {
