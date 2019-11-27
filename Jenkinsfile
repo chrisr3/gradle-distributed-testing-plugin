@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('Distributed Testing Plugin Build') {
             steps {
-                sh "./gradlew clean build --stacktrace"
+                sh "./gradlew clean build test"
             }
         }
     }
