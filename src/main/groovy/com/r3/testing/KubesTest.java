@@ -441,7 +441,9 @@ public class KubesTest extends DefaultTask {
 
 
     private File startLogPumping(InputStream stdOutIs, int podIdx, File podLogsDirectory, boolean printOutput) throws IOException {
-        File outputFile = new File(podLogsDirectory, "container-" + podIdx + ".log");
+        File outputDir = new File(podLogsDirectory, taskToExecuteName);
+        outputDir.mkdirs();
+        File outputFile = new File(outputDir, "container-" + podIdx + ".log");
         outputFile.createNewFile();
         Thread loggingThread = new Thread(() -> {
             try (BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true));
@@ -468,7 +470,7 @@ public class KubesTest extends DefaultTask {
         KubernetesClient client = getKubernetesClient();
         return client.pods().inNamespace(pod.getMetadata().getNamespace()).withName(pod.getMetadata().getName()).watch(new Watcher<Pod>() {
             @Override
-            public void eventReceived(Watcher.Action action, Pod resource) {
+            public void eventReceived(Action action, Pod resource) {
                 getProject().getLogger().lifecycle("[StatusChange]  pod " + resource.getMetadata().getName() + " " + action.name() + " (" + resource.getStatus().getPhase() + ")");
             }
 
