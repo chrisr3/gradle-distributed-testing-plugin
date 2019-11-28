@@ -1,8 +1,23 @@
 package com.r3.testing;
 
 import com.r3.testing.retry.Retry;
-import io.fabric8.kubernetes.api.model.*;
-import io.fabric8.kubernetes.client.*;
+import io.fabric8.kubernetes.api.model.ContainerFluent;
+import io.fabric8.kubernetes.api.model.DoneablePod;
+import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.PodFluent;
+import io.fabric8.kubernetes.api.model.PodSpecFluent;
+import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.Status;
+import io.fabric8.kubernetes.api.model.StatusCause;
+import io.fabric8.kubernetes.api.model.StatusDetails;
+import io.fabric8.kubernetes.api.model.TolerationBuilder;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.Watch;
+import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.dsl.ExecListener;
 import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.fabric8.kubernetes.client.utils.Serialization;
@@ -12,13 +27,38 @@ import org.gradle.api.InvalidUserCodeException;
 import org.gradle.api.tasks.TaskAction;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.io.RandomAccessFile;
 import java.math.BigInteger;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.Path;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -69,7 +109,7 @@ public class KubesTest extends DefaultTask {
             client.pods().inNamespace(NAMESPACE).list().getItems().forEach(podToDelete -> {
                 if (podToDelete.getMetadata().getName().contains(stableRunId)) {
                     getProject().getLogger().lifecycle("deleting: " + podToDelete.getMetadata().getName());
-                    client.resource(podToDelete).delete();
+                    deletePodAndWaitForDeletion(NAMESPACE, podToDelete.getMetadata().getName(), client);
                 }
             });
         } catch (Exception ignored) {
@@ -210,15 +250,7 @@ public class KubesTest extends DefaultTask {
                 // remove pod if exists
                 Pod createdPod;
                 try (KubernetesClient client = getKubernetesClient()) {
-                    PodResource<Pod, DoneablePod> oldPod = client.pods().inNamespace(namespace).withName(podName);
-                    if (oldPod.get() != null) {
-                        getLogger().lifecycle("deleting pod: {}", podName);
-                        oldPod.delete();
-                        while (oldPod.get() != null) {
-                            getLogger().info("waiting for pod {} to be removed", podName);
-                            Thread.sleep(1000);
-                        }
-                    }
+                    deletePodAndWaitForDeletion(namespace, podName, client);
                     getProject().getLogger().lifecycle("creating pod: " + podName);
                     createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null));
                     remainingPods.add(podName);
@@ -252,9 +284,8 @@ public class KubesTest extends DefaultTask {
                 }
 
                 getLogger().lifecycle("removing pod " + podName + " (" + podNumber + "/" + numberOfPods + ") after completed build");
-
                 try (KubernetesClient client = getKubernetesClient()) {
-                    client.pods().delete(createdPod);
+                    deletePodAndWaitForDeletion(NAMESPACE, podName, client);
                     client.persistentVolumeClaims().delete(pvc);
                     synchronized (remainingPods) {
                         remainingPods.remove(podName);
@@ -265,9 +296,35 @@ public class KubesTest extends DefaultTask {
                 return new KubePodResult(podIdx, resCode, podOutput, binaryResults);
             });
         } catch (Retry.RetryException e) {
-            Pod pod = getKubernetesClient().pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null));
-            downloadTestXmlFromPod(namespace, pod);
+            try (KubernetesClient client = getKubernetesClient()) {
+                deletePodAndWaitForDeletion(NAMESPACE, podName, client);
+                Pod reCreatedPod = getKubernetesClient().pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null));
+                client.resource(reCreatedPod).waitUntilReady(10, TimeUnit.MINUTES);
+                downloadTestXmlFromPod(namespace, reCreatedPod);
+                deletePodAndWaitForDeletion(NAMESPACE, podName, client);
+                client.persistentVolumeClaims().delete(pvc);
+            } catch (InterruptedException ex) {
+                getProject().getLogger().error("Failed to recreate pod " + podName + "for log and test xml collection");
+            }
+
+
             throw new InvalidUserCodeException("Failed to build in pod " + podName + " (" + podNumber + "/" + numberOfPods + ") in " + numberOfRetries + " attempts", e);
+        }
+    }
+
+    private void deletePodAndWaitForDeletion(String namespace, String podName, KubernetesClient client) {
+        PodResource<Pod, DoneablePod> oldPod = client.pods().inNamespace(namespace).withName(podName);
+        if (oldPod.get() != null) {
+            getLogger().lifecycle("deleting pod: {}", podName);
+            oldPod.delete();
+            while (oldPod.get() != null) {
+                getLogger().info("waiting for pod {} to be removed", podName);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
     }
 
