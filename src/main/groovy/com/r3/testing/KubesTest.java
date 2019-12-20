@@ -81,8 +81,8 @@ public class KubesTest extends DefaultTask {
         String stableRunId = rnd64Base36(new Random(buildId.hashCode() + currentUser.hashCode() + taskToExecuteName.hashCode()));
         String random = rnd64Base36(new Random());
 
-        // Tear down any orphaned db schemas from previous test run
-        tearDownOrphanedAzureSQLDbSchemas();
+        // Tear down any orphaned dbs from previous test run
+        tearDownOrphanedAzureSQLDbs();
 
         try (KubernetesClient client = getKubernetesClient()) {
             client.pods().inNamespace(NAMESPACE).list().getItems().forEach(podToDelete -> {
@@ -115,11 +115,11 @@ public class KubesTest extends DefaultTask {
             }
         }).collect(Collectors.toList());
 
-        // Tear down Azure SQL DB schemas (if any) from this test run
-        tearDownAzureSQLDbSchemas(stableRunId, random);
+        // Tear down Azure SQL DBs (if any) from this test run
+        tearDownAzureSQLDbs(stableRunId, random);
     }
 
-    private void tearDownOrphanedAzureSQLDbSchemas() {
+    private void tearDownOrphanedAzureSQLDbs() {
         // get all of the live pod names
         try (KubernetesClient client = getKubernetesClient()) {
             List<String> podNames = client.pods().inNamespace(NAMESPACE).list().getItems().stream().map(pod -> pod.getMetadata().getName()).collect(Collectors.toList());
@@ -143,7 +143,7 @@ public class KubesTest extends DefaultTask {
         }
     }
 
-    private void tearDownAzureSQLDbSchemas(String stableRunId, String random) {
+    private void tearDownAzureSQLDbs(String stableRunId, String random) {
         if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
             List<String> podNames = IntStream.range(0, numberOfPods).mapToObj(i -> generatePodName(stableRunId, random, i)).collect(Collectors.toList());
             String basePodName = podNames.get(0).substring(0, podNames.get(0).length() - 2);
