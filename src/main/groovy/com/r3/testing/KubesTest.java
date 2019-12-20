@@ -382,7 +382,7 @@ public class KubesTest extends DefaultTask {
                 .usingListener(execListener)
                 .exec(buildCommand);
 
-        startLogPumping(stdOutIs, podIdx, podLogsDirectory, printOutput);
+        startLogPumping(stdOutIs, podIdx, outputFileForPod, printOutput);
         return waiter;
     }
 
