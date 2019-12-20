@@ -491,7 +491,7 @@ public class KubesTest extends DefaultTask {
                 .withNewResources();
     }
 
-    private void startLogPumping(InputStream stdOutIs, int podIdx, File outputFile, boolean printOutput) throws IOException {
+    private void startLogPumping(InputStream stdOutIs, int podIdx, File outputFile, boolean printOutput) {
 
         Thread loggingThread = new Thread(() -> {
             try (BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true));
