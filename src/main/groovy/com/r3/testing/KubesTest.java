@@ -1,6 +1,7 @@
 package com.r3.testing;
 
 import com.microsoft.azure.AzureEnvironment;
+import com.microsoft.azure.CloudException;
 import com.microsoft.azure.credentials.ApplicationTokenCredentials;
 import com.microsoft.azure.management.Azure;
 import com.microsoft.azure.management.sql.ServiceObjectiveName;
@@ -124,21 +125,26 @@ public class KubesTest extends DefaultTask {
         try (KubernetesClient client = getKubernetesClient()) {
             List<String> podNames = client.pods().inNamespace(NAMESPACE).list().getItems().stream().map(pod -> pod.getMetadata().getName()).collect(Collectors.toList());
             try {
-                Azure azure = Azure.configure()
+                List<SqlDatabase> sqlDatabases = Azure.configure()
                         .withLogLevel(LogLevel.NONE)
                         .authenticate(AZURE_CREDENTIALS)
-                        .withDefaultSubscription();
-                List<SqlDatabase> databases = azure.sqlServers()
+                        .withDefaultSubscription().sqlServers()
                         .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
                         .databases().list().stream()
                         .filter(db -> !db.name().contains("master")).collect(Collectors.toList());
-                for (SqlDatabase db: databases) {
-                    if (podNames.stream().noneMatch(podName -> db.name().contains(podName))) {
-                        azure.sqlServers().getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER).databases().delete(db.name());
+                for (SqlDatabase db: sqlDatabases) {
+                    try {
+                        db.delete();
+                    } catch (Exception ignored) {
+                        //it's possible that a db is being deleted by another build, this can lead to racey conditions
                     }
                 }
-            } catch (IOException ignored) {
-                // it's possible that a db is being deleted by another build, this can lead to racey conditions
+            } catch (CloudException e) {
+                getProject().getLogger().lifecycle("CloudException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
+                e.printStackTrace();
+            } catch (IOException e) {
+                getProject().getLogger().lifecycle("IOException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
+                e.printStackTrace();
             }
         }
     }
@@ -148,15 +154,26 @@ public class KubesTest extends DefaultTask {
             List<String> podNames = IntStream.range(0, numberOfPods).mapToObj(i -> generatePodName(stableRunId, random, i)).collect(Collectors.toList());
             String basePodName = podNames.get(0).substring(0, podNames.get(0).length() - 2);
             try {
-                Azure.configure()
+                List<SqlDatabase> sqlDatabases = Azure.configure()
                         .withLogLevel(LogLevel.NONE)
                         .authenticate(AZURE_CREDENTIALS)
                         .withDefaultSubscription().sqlServers()
                         .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
                         .databases().list().stream()
-                        .filter(db -> db.name().contains(basePodName)).forEach(SqlDatabase::delete);
-            } catch (IOException ignored) {
-                //it's possible that a db is being deleted by another build, this can lead to racey conditions
+                        .filter(db -> db.name().contains(basePodName)).collect(Collectors.toList());
+                for (SqlDatabase db: sqlDatabases) {
+                    try {
+                        db.delete();
+                    } catch (Exception ignored) {
+                        //it's possible that a db is being deleted by another build, this can lead to racey conditions
+                    }
+                }
+            } catch (CloudException e) {
+                getProject().getLogger().lifecycle("CloudException thrown when getting Azure client for tearing down Azure SQL databases post-test.");
+                e.printStackTrace();
+            } catch (IOException e) {
+                getProject().getLogger().lifecycle("IOException thrown when getting Azure client for tearing down Azure SQL databases post-test.");
+                e.printStackTrace();
             }
         }
     }
