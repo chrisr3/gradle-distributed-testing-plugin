@@ -1,3 +1,7 @@
+import com.r3.testing.DistributeTestsBy
+import com.r3.testing.ParallelTestGroup
+import com.r3.testing.PodLogLevel
+
 plugins {
     id 'com.gradle.plugin-publish' version '0.10.1' apply false
     id 'com.jfrog.artifactory' version '4.9.6'
@@ -19,6 +23,13 @@ ext {
 repositories {
     mavenCentral()
     jcenter()
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['src/main/java', '../src/main/java']
+        groovy.srcDirs = ['src/main/groovy', '../src/main/groovy']
+    }
 }
 
 gradlePlugin {
@@ -112,4 +123,15 @@ artifactoryPublish {
 wrapper {
     gradleVersion = "5.6.4"
     distributionType = Wrapper.DistributionType.ALL
+}
+
+task allParallelUnitTest(type: ParallelTestGroup) {
+    podLogLevel PodLogLevel.INFO
+    testGroups "test"
+    numberOfShards 2
+    streamOutput false
+    coresPerFork 3
+    memoryInGbPerFork 12
+    distribute DistributeTestsBy.CLASS
+    nodeTaints "small"
 }
