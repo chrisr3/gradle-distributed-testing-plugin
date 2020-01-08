@@ -25,13 +25,6 @@ repositories {
     jcenter()
 }
 
-sourceSets {
-    main {
-        java.srcDirs = ['src/main/java', '../src/main/java']
-        groovy.srcDirs = ['src/main/groovy', '../src/main/groovy']
-    }
-}
-
 gradlePlugin {
     plugins {
         distributedTestingPlugin {
