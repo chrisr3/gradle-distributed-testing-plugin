@@ -1,5 +1,11 @@
 package com.r3.testing;
 
+import com.microsoft.azure.AzureEnvironment;
+import com.microsoft.azure.credentials.ApplicationTokenCredentials;
+import com.microsoft.azure.management.Azure;
+import com.microsoft.azure.management.sql.ServiceObjectiveName;
+import com.microsoft.azure.management.sql.SqlDatabase;
+import com.microsoft.rest.LogLevel;
 import com.r3.testing.retry.Retry;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.*;
@@ -57,13 +63,26 @@ public class KubesTest extends DefaultTask {
     DistributeTestsBy distribution = DistributeTestsBy.METHOD;
     PodLogLevel podLogLevel = PodLogLevel.INFO;
 
+    private static final String RESOURCE_GROUP = "build-k8s-infrastructure";
+    private static final String CLIENT = System.getProperty("azure.client");
+    private static final String TENANT = System.getProperty("azure.tenant");
+    private static final String KEY = System.getProperty("azure.key");
+    private static final String ASQL_SERVER = "eng-infra-test-db-server-01";
+    private static final ApplicationTokenCredentials AZURE_CREDENTIALS = new ApplicationTokenCredentials(
+            CLIENT, TENANT, KEY, AzureEnvironment.AZURE
+    );
+
     @TaskAction
     public void runDistributedTests() {
+
         String buildId = System.getProperty("buildId", "0");
         String currentUser = System.getProperty("user.name", "UNKNOWN_USER");
 
         String stableRunId = rnd64Base36(new Random(buildId.hashCode() + currentUser.hashCode() + taskToExecuteName.hashCode()));
         String random = rnd64Base36(new Random());
+
+        // Tear down any orphaned dbs from previous test run
+        tearDownOrphanedAzureSQLDbs();
 
         try (KubernetesClient client = getKubernetesClient()) {
             client.pods().inNamespace(NAMESPACE).list().getItems().forEach(podToDelete -> {
@@ -88,7 +107,6 @@ public class KubesTest extends DefaultTask {
                 throw new InvalidUserCodeException("Exception occurred ", e);
             }
         }).flatMap(Collection::stream).collect(Collectors.toList()));
-
         this.containerResults = futures.stream().map(it -> {
             try {
                 return it.get();
@@ -96,6 +114,51 @@ public class KubesTest extends DefaultTask {
                 throw new InvalidUserCodeException("Exception occurred ", e);
             }
         }).collect(Collectors.toList());
+
+        // Tear down Azure SQL DBs (if any) from this test run
+        tearDownAzureSQLDbs(stableRunId, random);
+    }
+
+    private void tearDownOrphanedAzureSQLDbs() {
+        // get all of the live pod names
+        try (KubernetesClient client = getKubernetesClient()) {
+            List<String> podNames = client.pods().inNamespace(NAMESPACE).list().getItems().stream().map(pod -> pod.getMetadata().getName()).collect(Collectors.toList());
+            try {
+                Azure azure = Azure.configure()
+                        .withLogLevel(LogLevel.NONE)
+                        .authenticate(AZURE_CREDENTIALS)
+                        .withDefaultSubscription();
+                List<SqlDatabase> databases = azure.sqlServers()
+                        .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
+                        .databases().list().stream()
+                        .filter(db -> !db.name().contains("master")).collect(Collectors.toList());
+                for (SqlDatabase db: databases) {
+                    if (podNames.stream().noneMatch(podName -> db.name().contains(podName))) {
+                        azure.sqlServers().getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER).databases().delete(db.name());
+                    }
+                }
+            } catch (IOException ignored) {
+                // it's possible that a db is being deleted by another build, this can lead to racey conditions
+            }
+        }
+    }
+
+    private void tearDownAzureSQLDbs(String stableRunId, String random) {
+        if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
+            List<String> podNames = IntStream.range(0, numberOfPods).mapToObj(i -> generatePodName(stableRunId, random, i)).collect(Collectors.toList());
+            String basePodName = podNames.get(0).substring(0, podNames.get(0).length() - 2);
+            try {
+                Azure.configure()
+                        .withLogLevel(LogLevel.NONE)
+                        .authenticate(AZURE_CREDENTIALS)
+                        .withDefaultSubscription().sqlServers()
+                        .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
+                        .databases().list().stream()
+                        .filter(db -> db.name().contains(basePodName)).forEach(SqlDatabase::delete);
+            } catch (IOException ignored) {
+                //it's possible that a db is being deleted by another build, this can lead to racey conditions
+            }
+        }
     }
 
     @NotNull
@@ -271,7 +334,6 @@ public class KubesTest extends DefaultTask {
                 getProject().getLogger().error("Failed to recreate pod " + podName + "for log and test xml collection");
             }
 
-
             throw new InvalidUserCodeException("Failed to build in pod " + podName + " (" + podNumber + "/" + numberOfPods + ") in " + numberOfRetries + " attempts", e);
         }
     }
@@ -292,6 +354,7 @@ public class KubesTest extends DefaultTask {
         }
     }
 
+
     @NotNull
     private CompletableFuture<Integer> executeBuild(String namespace,
                                                     int numberOfPods,
@@ -310,7 +373,7 @@ public class KubesTest extends DefaultTask {
         ExecListener execListener = buildExecListenerForPod(podName, errChannelStream, waiter, client);
         stdOutIs.connect(stdOutOs);
 
-        String[] buildCommand = getBuildCommand(numberOfPods, podIdx);
+        String[] buildCommand = getBuildCommand(numberOfPods, podIdx, podName);
         getProject().getLogger().quiet("About to execute " + Arrays.stream(buildCommand).reduce("", (s, s2) -> s + " " + s2) + " on pod " + podName);
         client.pods().inNamespace(namespace).withName(podName)
                 .inContainer(podName)
@@ -324,9 +387,15 @@ public class KubesTest extends DefaultTask {
     }
 
     private Pod buildPodRequest(String podName, PersistentVolumeClaim pvc, boolean withDb) {
-        if (withDb) {
+        if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
+            // Azure SQL
+            setUpAzureSQLDbSchemaForPod(podName);
+            return buildPodRequestWithOnlyWorkerNode(podName, pvc);
+        } else if (withDb) {
+            // Other DBs
             return buildPodRequestWithWorkerNodeAndDbContainer(podName, pvc);
         } else {
+            // No DB / H2
             return buildPodRequestWithOnlyWorkerNode(podName, pvc);
         }
     }
@@ -374,6 +443,21 @@ public class KubesTest extends DefaultTask {
                 .build();
     }
 
+    private void setUpAzureSQLDbSchemaForPod(String podName) {
+        try {
+            Azure.configure()
+                    .withLogLevel(LogLevel.NONE)
+                    .authenticate(AZURE_CREDENTIALS)
+                    .withDefaultSubscription().sqlServers()
+                    .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
+                    .databases().define(podName + "-db")
+                    .withServiceObjective(ServiceObjectiveName.BASIC)
+                    .create();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private ContainerFluent.ResourcesNested<PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>>> getBasePodDefinition(String podName, PersistentVolumeClaim pvc) {
         return new PodBuilder()
                 .withNewMetadata().withName(podName).endMetadata()
@@ -406,7 +490,6 @@ public class KubesTest extends DefaultTask {
                 .withName(podName)
                 .withNewResources();
     }
-
 
     private void startLogPumping(InputStream stdOutIs, int podIdx, File outputFile, boolean printOutput) {
 
@@ -478,12 +561,11 @@ public class KubesTest extends DefaultTask {
         return findFolderContainingBinaryResultsFile(new File(tempDir.toFile().getAbsolutePath()), binaryResultsFile);
     }
 
-    private String[] getBuildCommand(int numberOfPods, int podIdx) {
+    private String[] getBuildCommand(int numberOfPods, int podIdx, String podName) {
         final String gitBranch = " -Dgit.branch=" + Properties.getGitBranch();
         final String gitTargetBranch = " -Dgit.target.branch=" + Properties.getTargetGitBranch();
         final String artifactoryUsername = " -Dartifactory.username=" + Properties.getUsername() + " ";
         final String artifactoryPassword = " -Dartifactory.password=" + Properties.getPassword() + " ";
-        final String additionalArgs = this.additionalArgs.isEmpty() ? "" : String.join(" ", this.additionalArgs);
 
         String shellScript = "(let x=1 ; while [ ${x} -ne 0 ] ; do echo \"Waiting for DNS\" ; curl services.gradle.org > /dev/null 2>&1 ; x=$? ; sleep 1 ; done ) && "
                 + " cd /tmp/source && " +
@@ -493,9 +575,22 @@ public class KubesTest extends DefaultTask {
                 gitTargetBranch +
                 artifactoryUsername +
                 artifactoryPassword +
-                "-Dkubenetize -PdockerFork=" + podIdx + " -PdockerForks=" + numberOfPods + " " + fullTaskToExecutePath + " " + additionalArgs + " " + getLoggingLevel() + " 2>&1) ; " +
+                "-Dkubenetize -PdockerFork=" + podIdx + " -PdockerForks=" + numberOfPods + " " + fullTaskToExecutePath + " " + getAdditionalArgs(podName) + " " + getLoggingLevel() + " 2>&1) ; " +
                 "let rs=$? ; sleep 10 ; exit ${rs}";
         return new String[]{"bash", "-c", shellScript};
+    }
+
+    private String getAdditionalArgs(String podName) {
+        return this.additionalArgs.isEmpty() ? "" : String.join(" ", reworkDbNameForASQL(this.additionalArgs, podName));
+    }
+
+    private List<String> reworkDbNameForASQL(List<String> additionalArgs, String podName) {
+        List<String> reworkedArgs = new ArrayList<>();
+        for (String arg: additionalArgs) {
+            // replace db name placeholder in jdbc connection string
+            reworkedArgs.add(arg.replace("corda-db-test", podName + "-db"));
+        }
+        return reworkedArgs;
     }
 
     private String getLoggingLevel() {
