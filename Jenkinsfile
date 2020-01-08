@@ -15,7 +15,7 @@ pipeline {
         }
 
     stages {
-        stage('Corda Pull Request - Generate Build Image') {
+        stage('Gradle Distributed Testing Plugin Pull Pull Request - Generate Build Image') {
             steps {
                 withCredentials([string(credentialsId: 'container_reg_passwd', variable: 'DOCKER_PUSH_PWD')]) {
                     sh "./gradlew " +
@@ -23,14 +23,12 @@ pipeline {
                             "-Ddocker.push.password=\"\${DOCKER_PUSH_PWD}\" " +
                             "-Ddocker.work.dir=\"/tmp/\${EXECUTOR_NUMBER}\" " +
                             "-Ddocker.build.tag=\"\${DOCKER_TAG_TO_USE}\"" +
-                            " clean pushBuildImage preAllocateForAllParallelIntegrationTest preAllocateForAllParallelUnitTest --stacktrace"
+                            " clean pushBuildImage preAllocateForAllParallelUnitTest --stacktrace"
                 }
                 sh "kubectl auth can-i get pods"
             }
         }
-
-        stage('Corda Pull Request - Run Tests') {
-
+        stage('Gradle Distributed Testing Plugin Pull Request - Run Tests') {
             stage('Unit Tests') {
                 steps {
                     sh "./gradlew " +
