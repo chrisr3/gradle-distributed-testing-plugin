@@ -1,6 +1,8 @@
 import com.r3.testing.DistributeTestsBy
 import com.r3.testing.ParallelTestGroup
 import com.r3.testing.PodLogLevel
+import com.r3.testing.ImageBuilding
+import com.r3.testing.DistributedTesting
 
 plugins {
     id 'com.gradle.plugin-publish' version '0.10.1' apply false
@@ -129,3 +131,6 @@ task allParallelUnitTest(type: ParallelTestGroup) {
     distribute DistributeTestsBy.CLASS
     nodeTaints "small"
 }
+
+apply plugin: ImageBuilding
+apply plugin: DistributedTesting
