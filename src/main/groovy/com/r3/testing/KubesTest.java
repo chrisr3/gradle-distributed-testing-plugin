@@ -82,7 +82,7 @@ public class KubesTest extends DefaultTask {
         String random = rnd64Base36(new Random());
 
         // Tear down any orphaned dbs from previous test run
-        tearDownOrphanedAzureSQLDbs();
+        //tearDownOrphanedAzureSQLDbs();
 
         try (KubernetesClient client = getKubernetesClient()) {
             client.pods().inNamespace(NAMESPACE).list().getItems().forEach(podToDelete -> {

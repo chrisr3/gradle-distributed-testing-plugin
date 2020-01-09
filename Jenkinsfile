@@ -38,9 +38,6 @@ pipeline {
                         "-Dartifactory.password=\"\${ARTIFACTORY_CREDENTIALS_PSW}\" " +
                         "-Dgit.branch=\"\${GIT_BRANCH}\" " +
                         "-Dgit.target.branch=\"\${CHANGE_TARGET}\" " +
-                        "-Dazure.client=http://cairncross-sp" +
-                        "-Dazure.key=32b558b3-eb0d-49da-8a1d-3780ca6575ea" +
-                        "-Dazure.tenant=a4be1f2e-2d10-4195-87cd-736aca9b672c" +
                         " deAllocateForAllParallelUnitTest allParallelUnitTest --stacktrace"
             }
         }
