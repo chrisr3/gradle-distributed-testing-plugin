@@ -125,7 +125,7 @@ wrapper {
 task allParallelUnitTest(type: ParallelTestGroup) {
     podLogLevel PodLogLevel.INFO
     testGroups "test"
-    numberOfShards 10
+    numberOfShards 2
     streamOutput false
     coresPerFork 3
     memoryInGbPerFork 12
