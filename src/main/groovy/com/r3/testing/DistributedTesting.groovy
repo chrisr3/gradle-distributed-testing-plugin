@@ -111,14 +111,8 @@ class DistributedTesting implements Plugin<Project> {
                     allTestTasksGroupedByType.get(it)
                 }.flatten()
 
-                String superListOfTasks;
                 //join up these test tasks into a single set of tasks to invoke (node:test, node:integrationTest...)
-                if(testTasksToRunInGroup.size() == 1) {
-                    //remove colon if we're running in a single module project
-                    superListOfTasks = testTasksToRunInGroup.get(0).path.substring(1);
-                } else {
-                    superListOfTasks = testTasksToRunInGroup.collect { it.path }.join(" ")
-                }
+                String superListOfTasks = testTasksToRunInGroup.collect { it.path }.join(" ")
 
                 //generate a preAllocate / deAllocate task which allows you to "pre-book" a node during the image building phase
                 //this prevents time lost to cloud provider node spin up time (assuming image build time > provider spin up time)

@@ -8,3 +8,4 @@
  */
 
 rootProject.name = 'gradle-distributed-testing-plugin'
+include 'src'
