@@ -70,7 +70,7 @@ public class ListTests extends DefaultTask implements TestLister {
     private Stream<ClassInfo> getClassGraphStreamOfTestClasses() {
         Stream<ClassInfo> junit4ClassGraphStream = getClassGraphStreamForAnnotation("org.junit.Test");
         Stream<ClassInfo> junit5ClassGraphStream = getClassGraphStreamForAnnotation("org.junit.jupiter.api.Test");
-        return Stream.concat(junit4ClassGraphStream, junit4ClassGraphStream);
+        return Stream.concat(junit4ClassGraphStream, junit5ClassGraphStream);
     }
 
     @NotNull
