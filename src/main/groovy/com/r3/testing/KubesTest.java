@@ -121,30 +121,32 @@ public class KubesTest extends DefaultTask {
     }
 
     private void tearDownOrphanedAzureSQLDbs() {
-        // get all of the live pod names
-        try (KubernetesClient client = getKubernetesClient()) {
-            List<String> podNames = client.pods().inNamespace(NAMESPACE).list().getItems().stream().map(pod -> pod.getMetadata().getName()).collect(Collectors.toList());
-            try {
-                List<SqlDatabase> sqlDatabases = Azure.configure()
-                        .withLogLevel(LogLevel.NONE)
-                        .authenticate(AZURE_CREDENTIALS)
-                        .withDefaultSubscription().sqlServers()
-                        .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
-                        .databases().list().stream()
-                        .filter(db -> !db.name().contains("master")).collect(Collectors.toList());
-                for (SqlDatabase db: sqlDatabases) {
-                    try {
-                        db.delete();
-                    } catch (Exception ignored) {
-                        //it's possible that a db is being deleted by another build, this can lead to racey conditions
+        if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
+            // get all of the live pod names
+            try (KubernetesClient client = getKubernetesClient()) {
+                List<String> podNames = client.pods().inNamespace(NAMESPACE).list().getItems().stream().map(pod -> pod.getMetadata().getName()).collect(Collectors.toList());
+                try {
+                    List<SqlDatabase> sqlDatabases = Azure.configure()
+                            .withLogLevel(LogLevel.NONE)
+                            .authenticate(AZURE_CREDENTIALS)
+                            .withDefaultSubscription().sqlServers()
+                            .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
+                            .databases().list().stream()
+                            .filter(db -> !db.name().contains("master")).collect(Collectors.toList());
+                    for (SqlDatabase db : sqlDatabases) {
+                        try {
+                            db.delete();
+                        } catch (Exception ignored) {
+                            //it's possible that a db is being deleted by another build, this can lead to racey conditions
+                        }
                     }
+                } catch (CloudException e) {
+                    getProject().getLogger().lifecycle("CloudException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    getProject().getLogger().lifecycle("IOException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
+                    e.printStackTrace();
                 }
-            } catch (CloudException e) {
-                getProject().getLogger().lifecycle("CloudException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
-                e.printStackTrace();
-            } catch (IOException e) {
-                getProject().getLogger().lifecycle("IOException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
-                e.printStackTrace();
             }
         }
     }
