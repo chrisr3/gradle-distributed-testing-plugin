@@ -129,7 +129,7 @@ task allParallelUnitTest(type: ParallelTestGroup) {
     streamOutput true
     coresPerFork 3
     memoryInGbPerFork 12
-    distribute DistributeTestsBy.CLASS
+    distribute DistributeTestsBy.METHOD
     nodeTaints "small"
 }
 
