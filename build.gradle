@@ -126,7 +126,7 @@ task allParallelUnitTest(type: ParallelTestGroup) {
     podLogLevel PodLogLevel.INFO
     testGroups "test"
     numberOfShards 2
-    streamOutput false
+    streamOutput true
     coresPerFork 3
     memoryInGbPerFork 12
     distribute DistributeTestsBy.CLASS
