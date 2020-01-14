@@ -3,6 +3,7 @@ package com.r3.testing;
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage;
 import com.bmuschko.gradle.docker.tasks.image.DockerPushImage;
 import groovy.lang.Closure;
+import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -230,7 +231,7 @@ class DistributedTesting implements Plugin<Project> {
 
         KubesTest createdParallelTestTask = projectContainingTask.getTasks().create("parallel" + capitalizedTaskName, KubesTest.class, kubesTest -> {
             kubesTest.setGroup(GRADLE_GROUP + " Parallel Test Tasks");
-            if (providedTag.isEmpty()) {
+            if (!StringUtils.isEmpty(providedTag)) {
                 kubesTest.dependsOn(imageBuildingTask);
             }
             kubesTest.printOutput = true;
