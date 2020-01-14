@@ -45,7 +45,8 @@ pipeline {
 
     post {
         always {
-            junit '**/build/test-results/**/*.xml'
+            archiveArtifacts artifacts: '**/pod-logs/**/*.log', fingerprint: false
+            junit '**/build/test-results-xml/**/*.xml'
         }
         cleanup {
             deleteDir() /* clean up our workspace */
