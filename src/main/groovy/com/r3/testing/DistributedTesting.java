@@ -121,7 +121,7 @@ class DistributedTesting implements Plugin<Project> {
                 KubesTest userDefinedParallelTask = project.getRootProject().getTasks()
                         .create("userDefined" + capitalize(testGrouping.getName()), KubesTest.class, kubesTest -> {
                             kubesTest.setGroup(GRADLE_GROUP);
-                            if (tagToUseForRunningTests.isEmpty()) {
+                            if (StringUtils.isEmpty(tagToUseForRunningTests)) {
                                 kubesTest.dependsOn(imagePushTask);
                             }
                             if (requestedTaskNames.contains(deAllocateTask.getName())) {
@@ -139,7 +139,7 @@ class DistributedTesting implements Plugin<Project> {
                             kubesTest.taints = testGrouping.getNodeTaints();
                             kubesTest.sidecarImage = testGrouping.getSidecarImage();
                             kubesTest.additionalArgs = testGrouping.getAdditionalArgs();
-                            kubesTest.doFirst(task -> ((KubesTest) task).dockerTag = !tagToUseForRunningTests.isEmpty() ?
+                            kubesTest.doFirst(task -> ((KubesTest) task).dockerTag = !StringUtils.isEmpty(tagToUseForRunningTests) ?
                                     (ImageBuilding.registryName + ":" + tagToUseForRunningTests) :
                                     (imagePushTask.getImageName().get() + ":" + imagePushTask.getTag().get()));
                         });
@@ -211,7 +211,7 @@ class DistributedTesting implements Plugin<Project> {
         Task deAllocateTask = project.getRootProject().getTasks().create("deAllocateFor" + capitalize(testGrouping.getName()), task -> {
             task.setGroup(GRADLE_GROUP);
             task.doFirst(task1 -> {
-                String dockerTag = !System.getProperty(ImageBuilding.PROVIDE_TAG_FOR_RUNNING_PROPERTY).isEmpty() ?
+                String dockerTag = !StringUtils.isEmpty(System.getProperty(ImageBuilding.PROVIDE_TAG_FOR_RUNNING_PROPERTY)) ?
                         System.getProperty(ImageBuilding.PROVIDE_TAG_FOR_RUNNING_PROPERTY) :
                         System.getProperty(ImageBuilding.PROVIDE_TAG_FOR_BUILDING_PROPERTY);
                 if (dockerTag == null) {
@@ -231,14 +231,14 @@ class DistributedTesting implements Plugin<Project> {
 
         KubesTest createdParallelTestTask = projectContainingTask.getTasks().create("parallel" + capitalizedTaskName, KubesTest.class, kubesTest -> {
             kubesTest.setGroup(GRADLE_GROUP + " Parallel Test Tasks");
-            if (!StringUtils.isEmpty(providedTag)) {
+            if (StringUtils.isEmpty(providedTag)) {
                 kubesTest.dependsOn(imageBuildingTask);
             }
             kubesTest.printOutput = true;
             kubesTest.fullTaskToExecutePath = task.getPath();
             kubesTest.taskToExecuteName = taskName;
             kubesTest.doFirst(task1 -> {
-                ((KubesTest) task1).dockerTag = !providedTag.isEmpty() ? ImageBuilding.registryName + ":" + providedTag :
+                ((KubesTest) task1).dockerTag = !StringUtils.isEmpty(providedTag) ? ImageBuilding.registryName + ":" + providedTag :
                         (imageBuildingTask.getImageName().get() + ":" + imageBuildingTask.getTag().get());
             });
         });
