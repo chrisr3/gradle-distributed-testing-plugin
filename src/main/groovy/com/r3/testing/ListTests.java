@@ -68,6 +68,13 @@ public class ListTests extends DefaultTask implements TestLister {
 
     @NotNull
     private Stream<ClassInfo> getClassGraphStreamOfTestClasses() {
+        Stream<ClassInfo> junit4ClassGraphStream = getClassGraphStreamForAnnotation("org.junit.Test");
+        Stream<ClassInfo> junit5ClassGraphStream = getClassGraphStreamForAnnotation("org.junit.jupiter.api.Test");
+        return Stream.concat(junit4ClassGraphStream, junit5ClassGraphStream);
+    }
+
+    @NotNull
+    private Stream<ClassInfo> getClassGraphStreamForAnnotation(String annotation) {
         return new ClassGraph()
                 .enableClassInfo()
                 .enableMethodInfo()
@@ -76,7 +83,7 @@ public class ListTests extends DefaultTask implements TestLister {
                 .enableAnnotationInfo()
                 .overrideClasspath(scanClassPath)
                 .scan()
-                .getClassesWithMethodAnnotation("org.junit.Test")
+                .getClassesWithMethodAnnotation(annotation)
                 .stream()
                 .map(classInfo -> {
                     ClassInfoList returnList = new ClassInfoList();

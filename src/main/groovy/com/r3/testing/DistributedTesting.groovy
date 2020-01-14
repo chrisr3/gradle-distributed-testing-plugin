@@ -48,31 +48,56 @@ class DistributedTesting implements Plugin<Project> {
             //2. modify the underlying testing task to use the output of the global allocator to include a subset of tests for each fork
             //3. KubesTest will invoke these test tasks in a parallel fashion on a remote k8s cluster
             //4. after each completed test write its name to a file to keep track of what finished for restart purposes
-            project.subprojects { Project subProject ->
-                subProject.tasks.withType(Test) { Test task ->
+            if (project.subprojects.size() != 0) {
+                project.subprojects { Project subProject ->
+                    subProject.tasks.withType(Test) { Test task ->
+                        project.logger.info("Evaluating ${task.getPath()}")
+                        if (task in requestedTasks && !task.hasProperty("ignoreForDistribution")) {
+                            project.logger.info "Modifying ${task.getPath()}"
+                            Task testListerTask = createTestListingTasks(task, subProject)
+                            globalAllocator.addSource(testListerTask, task)
+                            Test modifiedTestTask = modifyTestTaskForParallelExecution(subProject, task, globalAllocator)
+                        } else {
+                            project.logger.info "Skipping modification of ${task.getPath()} as it's not scheduled for execution"
+                        }
+                        if (!task.hasProperty("ignoreForDistribution")) {
+                            //this is what enables execution of a single test suite - for example node:parallelTest would execute all unit tests in node, node:parallelIntegrationTest would do the same for integration tests
+                            KubesTest parallelTestTask = generateParallelTestingTask(subProject, task, imagePushTask, tagToUseForRunningTests)
+                        }
+                    }
+                }
+            } else {
+                project.tasks.withType(Test) { Test task ->
                     project.logger.info("Evaluating ${task.getPath()}")
                     if (task in requestedTasks && !task.hasProperty("ignoreForDistribution")) {
                         project.logger.info "Modifying ${task.getPath()}"
-                        Task testListerTask = createTestListingTasks(task, subProject)
+                        Task testListerTask = createTestListingTasks(task, project)
                         globalAllocator.addSource(testListerTask, task)
-                        Test modifiedTestTask = modifyTestTaskForParallelExecution(subProject, task, globalAllocator)
+                        Test modifiedTestTask = modifyTestTaskForParallelExecution(project, task, globalAllocator)
                     } else {
                         project.logger.info "Skipping modification of ${task.getPath()} as it's not scheduled for execution"
                     }
                     if (!task.hasProperty("ignoreForDistribution")) {
                         //this is what enables execution of a single test suite - for example node:parallelTest would execute all unit tests in node, node:parallelIntegrationTest would do the same for integration tests
-                        KubesTest parallelTestTask = generateParallelTestingTask(subProject, task, imagePushTask, tagToUseForRunningTests)
+                        KubesTest parallelTestTask = generateParallelTestingTask(project, task, imagePushTask, tagToUseForRunningTests)
                     }
                 }
             }
 
             //now we are going to create "super" groupings of the Test tasks, so that it is possible to invoke all submodule tests with a single command
             //group all test Tasks by their underlying target task (test/integrationTest/smokeTest ... etc)
-            Map<String, List<Test>> allTestTasksGroupedByType = project.subprojects.collect { prj -> prj.getAllTasks(false).values() }
-                    .flatten()
-                    .findAll { task -> task instanceof Test }
-                    .groupBy { Test task -> task.name }
-
+            Map<String, List<Test>> allTestTasksGroupedByType
+            if (project.subprojects.size() != 0) {
+                allTestTasksGroupedByType= project.subprojects.collect { prj -> prj.getAllTasks(false).values() }
+                        .flatten()
+                        .findAll { task -> task instanceof Test }
+                        .groupBy { Test task -> task.name }
+            } else {
+                allTestTasksGroupedByType = project.collect { prj -> prj.getAllTasks(false).values() }
+                        .flatten()
+                        .findAll { task -> task instanceof Test }
+                        .groupBy { Test task -> task.name }
+            }
             //first step is to create a single task which will invoke all the submodule tasks for each grouping
             //ie allParallelTest will invoke [node:test, core:test, client:rpc:test ... etc]
             //ie allIntegrationTest will invoke [node:integrationTest, core:integrationTest, client:rpc:integrationTest ... etc]
