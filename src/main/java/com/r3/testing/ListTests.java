@@ -33,7 +33,7 @@ public class ListTests extends DefaultTask implements TestLister {
         BigInteger gitSha = new BigInteger(getProject().hasProperty("corda_revision") ?
                 getProject().property("corda_revision").toString() : "0", 36);
         if (fork >= forks) {
-            throw new IllegalArgumentException("requested shard ${fork + 1} for total shards ${forks}");
+            throw new IllegalArgumentException("requested shard " + (fork + 1) + " for total shards " + forks);
         }
         int seedToUse = seed != null ? (seed + (this.getPath()).hashCode() + gitSha.intValue()) : 0;
         return new ListShufflerAndAllocator(allTests).getTestsForFork(fork, forks, seedToUse);
