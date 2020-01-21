@@ -25,11 +25,7 @@ public final class ParallelTestGroupConfigurer {
         this.tagToUseForRunningTests = tagToUseForRunningTests;
     }
 
-    public void configureParallelTestGroup(ParallelTestGroup testGrouping, Set<String> requestedTaskNames, Map<String, List<Test>> allTestTasksGroupedByType) {
-        List<Test> testTasksToRunInGroup = testGrouping.getGroups().stream()
-                .flatMap(group -> allTestTasksGroupedByType.get(group).stream())
-                .collect(Collectors.toList());
-
+    public void configureParallelTestGroup(ParallelTestGroup testGrouping, List<Test> testTasksToRunInGroup) {
         //join up these test tasks into a single set of tasks to invoke (node:test, node:integrationTest...)
         String superListOfTasks = testTasksToRunInGroup.stream()
                 .map(Task::getPath)
@@ -42,13 +38,13 @@ public final class ParallelTestGroupConfigurer {
         Task deAllocateTask = returnedList.get(1);
 
         //modify the image building task to depend on the preAllocate task (if specified on the command line) - this prevents gradle running out of order
-        if (requestedTaskNames.contains(preAllocateTask.getName())) {
+        if (project.isTaskRequested(preAllocateTask.getName())) {
             imageBuildTask.dependsOn(preAllocateTask);
             imagePushTask.finalizedBy(deAllocateTask);
         }
 
         KubesTest userDefinedParallelTask = project.createKubesTestFor(testGrouping, kubesTest ->
-            configureKubesTest(requestedTaskNames, testGrouping, superListOfTasks, deAllocateTask, kubesTest)
+            configureKubesTest(testGrouping, superListOfTasks, deAllocateTask, kubesTest)
         );
 
         KubesReporting reportOnAllTask = project.createKubesReportingTaskFor(testGrouping, kubesReporting -> {
@@ -63,12 +59,13 @@ public final class ParallelTestGroupConfigurer {
         testGrouping.dependsOn(zipTask);
     }
 
-    private void configureKubesTest( Set<String> requestedTaskNames, ParallelTestGroup testGrouping, String superListOfTasks, Task deAllocateTask, KubesTest kubesTest) {
+    private void configureKubesTest(ParallelTestGroup testGrouping, String superListOfTasks, Task deAllocateTask, KubesTest kubesTest) {
         kubesTest.setGroup(DistributedTesting.GRADLE_GROUP);
         if (StringUtils.isEmpty(tagToUseForRunningTests)) {
             kubesTest.dependsOn(imagePushTask);
         }
-        if (requestedTaskNames.contains(deAllocateTask.getName())) {
+
+        if (project.isTaskRequested(deAllocateTask.getName())) {
             kubesTest.dependsOn(deAllocateTask);
         }
 

@@ -32,6 +32,10 @@ public final class DistributedTestingProject {
         return project.hasProperty(propertyName) ? Integer.parseInt(project.property(propertyName).toString()) : defaultValue;
     }
 
+    public boolean isTaskRequested(String taskName) {
+        return requestedTaskNames.contains(taskName);
+    }
+
     public ImageBuilding getImageBuildingPlugin() {
         project.getPlugins().apply(ImageBuilding.class);
         return project.getPlugins().getPlugin(ImageBuilding.class);
@@ -86,13 +90,14 @@ public final class DistributedTestingProject {
     }
 
     public void traverseParallelTestGroups(ParallelTestGroupConfigurer configurer) {
-        Set<ParallelTestGroup> parallelTestGroups = new HashSet<>(project.getTasks().withType(ParallelTestGroup.class));
         Map<String, List<Test>> testsGroupedByType = getTestsGroupedByType();
 
-        parallelTestGroups.forEach(parallelTestGroup -> configurer.configureParallelTestGroup(
-                parallelTestGroup,
-                requestedTaskNames,
-                testsGroupedByType));
+        project.getTasks().withType(ParallelTestGroup.class).stream().distinct().forEach(parallelTestGroup ->
+                configurer.configureParallelTestGroup(
+                    parallelTestGroup,
+                    parallelTestGroup.getGroups().stream()
+                            .flatMap(group -> testsGroupedByType.get(group).stream())
+                            .collect(Collectors.toList())));
     }
 
     public PodAllocator createPodAllocator() {
