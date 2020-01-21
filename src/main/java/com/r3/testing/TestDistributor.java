@@ -6,6 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Task;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.api.tasks.testing.TestDescriptor;
+import org.gradle.api.tasks.testing.TestFilter;
 import org.gradle.api.tasks.testing.TestResult;
 import org.jetbrains.annotations.NotNull;
 
@@ -71,21 +72,25 @@ public final class TestDistributor {
         });
 
         //convenience task to utilize the output of the test listing task to display to local console, useful for debugging missing tests
-        Task createdPrintTask = subProject.createPrintTaskFor(task, printTask -> {
-            printTask.setGroup(DistributedTesting.GRADLE_GROUP);
-            printTask.dependsOn(createdListTask);
-            printTask.doLast(task1 -> {
-                createdListTask.getTestsForFork(
-                        subProject.getPropertyAsInt("dockerFork", 0),
-                        subProject.getPropertyAsInt("dockerForks", 1),
-                        42).forEach(testName -> subProject.logInfo(testName));
-            });
-        });
+        Task createdPrintTask = subProject.createPrintTaskFor(task, printTask -> configurePrintTask(subProject, createdListTask, printTask));
 
         subProject.logInfo("created task: " + createdListTask.getPath() + " in project: " + subProject + " it dependsOn: " + createdListTask.dependsOn());
         subProject.logInfo("created task: " + createdPrintTask.getPath() + " in project: " + subProject + " it dependsOn: " + createdPrintTask.dependsOn());
 
         return createdListTask;
+    }
+
+    private void configurePrintTask(DistributedTestingSubProject subProject, ListTests createdListTask, Task printTask) {
+        printTask.setGroup(DistributedTesting.GRADLE_GROUP);
+        printTask.dependsOn(createdListTask);
+        printTask.doLast(task1 -> configurePrintTaskDoLast(subProject, createdListTask));
+    }
+
+    private void configurePrintTaskDoLast(DistributedTestingSubProject subProject, ListTests createdListTask) {
+        createdListTask.getTestsForFork(
+                subProject.getPropertyAsInt("dockerFork", 0),
+                subProject.getPropertyAsInt("dockerForks", 1),
+                42).forEach(subProject::logInfo);
     }
 
     private Test modifyTestTaskForParallelExecution(DistributedTestingSubProject subProject, Test task) {
@@ -102,43 +107,10 @@ public final class TestDistributor {
             try {
                 executedTestsFile.createNewFile();
             } catch (IOException e) {
-                e.printStackTrace();
+                throw new RuntimeException(e);
             }
-            ((Test)task1).filter(testFilter -> {
-                List<String> executedTests = getExecutedTests(executedTestsFile);
-                int fork = subProject.getPropertyAsInt("dockerFork", 0);
-                subProject.logInfo("requesting tests to include in testing task " + task1.getPath() + " (idx: " + fork);
-                List<String> includes = globalAllocator.getTestIncludesForForkAndTestTask(fork, (Test) task1);
-                subProject.logInfo("got " + includes.size() + " tests to include into testing task " + task1.getPath());
-                subProject.logInfo("INCLUDE: " + includes.toString());
-                subProject.logInfo("got " + executedTests.size() + " tests to exclude from testing task " + task1.getPath());
-                subProject.logDebug("EXCLUDE: " + executedTests.toString());
 
-                if (includes.size() == 0) {
-                    subProject.logInfo("Disabling test execution for testing task " + task1.getPath());
-                    testFilter.excludeTestsMatching("*");
-                }
-
-                List<String> intersection = new ArrayList<>();
-                for (String test : executedTests) {
-                    if (includes.contains(test)) {
-                        intersection.add(test);
-                    }
-                }
-                subProject.logInfo("got " + intersection.size() + " tests in intersection");
-                subProject.logInfo("INTERSECTION: " + intersection.toString());
-                includes.removeAll(intersection);
-
-                intersection.forEach(exclude -> {
-                    subProject.logInfo("excluding: " + exclude + " for testing task " + task1.getPath());
-                    testFilter.excludeTestsMatching(exclude);
-                });
-                includes.forEach(include -> {
-                    subProject.logInfo("including: " + include + " for testing task " + task1.getPath());
-                    testFilter.includeTestsMatching(include);
-                });
-                testFilter.setFailOnNoMatchingTests(false);
-            });
+            ((Test)task1).filter(testFilter -> filterTestTask(subProject, executedTestsFile, task1, testFilter));
         });
 
         task.afterTest(new Closure(this, this) {
@@ -155,6 +127,40 @@ public final class TestDistributor {
             }
         });
         return task;
+    }
+
+    private void filterTestTask(DistributedTestingSubProject subProject, File executedTestsFile, Task task1, TestFilter testFilter) {
+        List<String> executedTests = getExecutedTests(executedTestsFile);
+        int fork = subProject.getPropertyAsInt("dockerFork", 0);
+        subProject.logInfo("requesting tests to include in testing task " + task1.getPath() + " (idx: " + fork);
+        List<String> includes = globalAllocator.getTestIncludesForForkAndTestTask(fork, (Test) task1);
+        subProject.logInfo("got " + includes.size() + " tests to include into testing task " + task1.getPath());
+        subProject.logInfo("INCLUDE: " + includes.toString());
+        subProject.logInfo("got " + executedTests.size() + " tests to exclude from testing task " + task1.getPath());
+        subProject.logDebug("EXCLUDE: " + executedTests.toString());
+
+        if (includes.isEmpty()) {
+            subProject.logInfo("Disabling test execution for testing task " + task1.getPath());
+            testFilter.excludeTestsMatching("*");
+        }
+
+        List<String> intersection = executedTests.stream().filter(includes::contains).collect(Collectors.toList());
+
+        subProject.logInfo("got " + intersection.size() + " tests in intersection");
+        subProject.logInfo("INTERSECTION: " + intersection.toString());
+        includes.removeAll(intersection);
+
+        intersection.forEach(exclude -> {
+            subProject.logInfo("excluding: " + exclude + " for testing task " + task1.getPath());
+            testFilter.excludeTestsMatching(exclude);
+        });
+
+        includes.forEach(include -> {
+            subProject.logInfo("including: " + include + " for testing task " + task1.getPath());
+            testFilter.includeTestsMatching(include);
+        });
+
+        testFilter.setFailOnNoMatchingTests(false);
     }
 
     private KubesTest generateParallelTestingTask(DistributedTestingSubProject projectContainingTask, Test task, DockerPushImage imageBuildingTask, String providedTag) {

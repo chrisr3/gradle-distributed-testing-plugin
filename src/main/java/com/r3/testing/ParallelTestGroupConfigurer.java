@@ -89,31 +89,23 @@ public final class ParallelTestGroupConfigurer {
         kubesReporting.setGroup(DistributedTesting.GRADLE_GROUP);
         kubesReporting.dependsOn(userDefinedParallelTask);
         kubesReporting.setDestinationDir(project.createUserDefinedReportsDirFor(testGrouping));
-        kubesReporting.doFirst(task -> {
-            ((KubesReporting) task).getDestinationDir().delete();
-            ((KubesReporting) task).shouldPrintOutput = !testGrouping.getPrintToStdOut();
-            ((KubesReporting) task).podResults = userDefinedParallelTask.containerResults;
-            ((KubesReporting) task).reportOn(userDefinedParallelTask.testOutput);
-        });
+        kubesReporting.doFirst(task ->
+            configureKubesReportingDoFirst(testGrouping, userDefinedParallelTask, (KubesReporting) task)
+        );
+    }
+
+    private void configureKubesReportingDoFirst(ParallelTestGroup testGrouping, KubesTest userDefinedParallelTask, KubesReporting task) {
+        task.getDestinationDir().delete();
+        task.shouldPrintOutput = !testGrouping.getPrintToStdOut();
+        task.podResults = userDefinedParallelTask.containerResults;
+        task.reportOn(userDefinedParallelTask.testOutput);
     }
 
     private List<Task> generatePreAllocateAndDeAllocateTasksForGrouping(ParallelTestGroup testGrouping) {
         PodAllocator allocator = project.createPodAllocator();
         Task preAllocateTask = project.createPreAllocateTaskFor(testGrouping, task -> {
             task.setGroup(DistributedTesting.GRADLE_GROUP);
-            task.doFirst(task1 -> {
-                String dockerTag = System.getProperty(ImageBuilding.PROVIDE_TAG_FOR_BUILDING_PROPERTY);
-                if (dockerTag == null) {
-                    throw new GradleException("pre allocation cannot be used without a stable docker tag - please provide one  using -D" + ImageBuilding.PROVIDE_TAG_FOR_BUILDING_PROPERTY);
-                }
-                int seed = (dockerTag.hashCode() + testGrouping.getName().hashCode());
-                String podPrefix = new BigInteger(64, new Random(seed)).toString(36);
-                //here we will pre-request the correct number of pods for this testGroup
-                int numberOfPodsToRequest = testGrouping.getShardCount();
-                int coresPerPod = testGrouping.getCoresToUse();
-                int memoryGBPerPod = testGrouping.getGbOfMemory();
-                allocator.allocatePods(numberOfPodsToRequest, coresPerPod, memoryGBPerPod, podPrefix, testGrouping.getNodeTaints());
-            });
+            task.doFirst(task1 -> configurePreAllocateTaskDoFirst(testGrouping, allocator));
         });
 
         Task deAllocateTask = project.createDeallocateTaskFor(testGrouping, task -> {
@@ -131,5 +123,19 @@ public final class ParallelTestGroupConfigurer {
             });
         });
         return new ArrayList<>(Arrays.asList(preAllocateTask, deAllocateTask));
+    }
+
+    private void configurePreAllocateTaskDoFirst(ParallelTestGroup testGrouping, PodAllocator allocator) {
+        String dockerTag = System.getProperty(ImageBuilding.PROVIDE_TAG_FOR_BUILDING_PROPERTY);
+        if (dockerTag == null) {
+            throw new GradleException("pre allocation cannot be used without a stable docker tag - please provide one  using -D" + ImageBuilding.PROVIDE_TAG_FOR_BUILDING_PROPERTY);
+        }
+        int seed = (dockerTag.hashCode() + testGrouping.getName().hashCode());
+        String podPrefix = new BigInteger(64, new Random(seed)).toString(36);
+        //here we will pre-request the correct number of pods for this testGroup
+        int numberOfPodsToRequest = testGrouping.getShardCount();
+        int coresPerPod = testGrouping.getCoresToUse();
+        int memoryGBPerPod = testGrouping.getGbOfMemory();
+        allocator.allocatePods(numberOfPodsToRequest, coresPerPod, memoryGBPerPod, podPrefix, testGrouping.getNodeTaints());
     }
 }
