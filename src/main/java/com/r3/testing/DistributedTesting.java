@@ -145,7 +145,7 @@ class DistributedTesting implements Plugin<Project> {
                         });
 
                 KubesReporting reportOnAllTask = project.getRootProject().getTasks()
-                        .create("userDefinedReports${testGrouping.getName().capitalize()}", KubesReporting.class, kubesReporting -> {
+                        .create("userDefinedReports" + capitalize(testGrouping.getName()), KubesReporting.class, kubesReporting -> {
                             kubesReporting.setGroup(GRADLE_GROUP);
                             kubesReporting.dependsOn(userDefinedParallelTask);
                             kubesReporting.setDestinationDir(new File(project.getRootProject().getBuildDir(), "userDefinedReports" + capitalize(testGrouping.getName())));
