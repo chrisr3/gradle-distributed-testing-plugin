@@ -303,7 +303,7 @@ public class KubesTest extends DefaultTask {
                 try (KubernetesClient client = getKubernetesClient()) {
                     deletePodAndWaitForDeletion(namespace, podName, client);
                     getProject().getLogger().lifecycle("creating pod: " + podName);
-                    createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null));
+                    createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
                     remainingPods.add(podName);
                     getProject().getLogger().lifecycle("scheduled pod: " + podName);
                 }
@@ -343,7 +343,7 @@ public class KubesTest extends DefaultTask {
         } catch (Retry.RetryException e) {
             try (KubernetesClient client = getKubernetesClient()) {
                 deletePodAndWaitForDeletion(NAMESPACE, podName, client);
-                Pod reCreatedPod = getKubernetesClient().pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null));
+                Pod reCreatedPod = getKubernetesClient().pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
                 client.resource(reCreatedPod).waitUntilReady(10, TimeUnit.MINUTES);
                 Collection<File> downloadedFiles = downloadTestXmlFromPod(namespace, reCreatedPod);
                 deletePodAndWaitForDeletion(NAMESPACE, podName, client);
@@ -405,22 +405,22 @@ public class KubesTest extends DefaultTask {
         return waiter;
     }
 
-    private Pod buildPodRequest(String podName, PersistentVolumeClaim pvc, boolean withDb) {
+    private Pod buildPodRequest(String podName, PersistentVolumeClaim pvc, boolean withDb, int podIdx) {
         if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
             // Azure SQL
             setUpAzureSQLDbSchemaForPod(podName);
-            return buildPodRequestWithOnlyWorkerNode(podName, pvc);
+            return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
         } else if (withDb) {
             // Other DBs
-            return buildPodRequestWithWorkerNodeAndDbContainer(podName, pvc);
+            return buildPodRequestWithWorkerNodeAndDbContainer(podName, pvc, podIdx);
         } else {
             // No DB / H2
-            return buildPodRequestWithOnlyWorkerNode(podName, pvc);
+            return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
         }
     }
 
-    private Pod buildPodRequestWithOnlyWorkerNode(String podName, PersistentVolumeClaim pvc) {
-        return getBasePodDefinition(podName, pvc)
+    private Pod buildPodRequestWithOnlyWorkerNode(String podName, PersistentVolumeClaim pvc, int podIdx) {
+        return getBasePodDefinition(podName, pvc, podIdx)
                 .addToRequests("cpu", new Quantity(numberOfCoresPerFork.toString()))
                 .addToRequests("memory", new Quantity(memoryGbPerFork.toString()))
                 .endResources()
@@ -433,8 +433,8 @@ public class KubesTest extends DefaultTask {
                 .build();
     }
 
-    private Pod buildPodRequestWithWorkerNodeAndDbContainer(String podName, PersistentVolumeClaim pvc) {
-        return getBasePodDefinition(podName, pvc)
+    private Pod buildPodRequestWithWorkerNodeAndDbContainer(String podName, PersistentVolumeClaim pvc, int podIdx) {
+        return getBasePodDefinition(podName, pvc, podIdx)
                 .addToRequests("cpu", new Quantity(Integer.valueOf(numberOfCoresPerFork - 1).toString()))
                 .addToRequests("memory", new Quantity(Integer.valueOf(memoryGbPerFork - 1).toString() + "Gi"))
                 .endResources()
@@ -477,7 +477,7 @@ public class KubesTest extends DefaultTask {
         }
     }
 
-    private ContainerFluent.ResourcesNested<PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>>> getBasePodDefinition(String podName, PersistentVolumeClaim pvc) {
+    private ContainerFluent.ResourcesNested<PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>>> getBasePodDefinition(String podName, PersistentVolumeClaim pvc, int podIdx) {
         return new PodBuilder()
                 .withNewMetadata().withName(podName).endMetadata()
                 .withNewSpec()
@@ -486,7 +486,7 @@ public class KubesTest extends DefaultTask {
                 .withName("gradlecache")
                 .withNewHostPath()
                 .withType("DirectoryOrCreate")
-                .withPath("/tmp/gradle")
+                .withPath("/tmp/gradle/"+podIdx+"-"+taskToExecuteName)
                 .endHostPath()
                 .endVolume()
                 .addNewVolume()
