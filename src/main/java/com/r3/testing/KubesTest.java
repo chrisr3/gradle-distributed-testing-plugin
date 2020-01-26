@@ -486,7 +486,7 @@ public class KubesTest extends DefaultTask {
                 .withName("gradlecache")
                 .withNewHostPath()
                 .withType("DirectoryOrCreate")
-                .withPath("/tmp/gradle/"+podIdx+"-"+taskToExecuteName)
+                .withPath("/gradle/"+podIdx+"-"+taskToExecuteName)
                 .endHostPath()
                 .endVolume()
                 .addNewVolume()
@@ -588,8 +588,8 @@ public class KubesTest extends DefaultTask {
 
         String shellScript = "(let x=1 ; while [ ${x} -ne 0 ] ; do echo \"Waiting for DNS\" ; curl services.gradle.org > /dev/null 2>&1 ; x=$? ; sleep 1 ; done ) && "
                 + " cd /tmp/source && " +
-                "(let y=1 ; while [ ${y} -ne 0 ] ; do echo \"Preparing build directory\" ; ./gradlew testClasses --parallel 2>&1 ; y=$? ; sleep 1 ; done ) && " +
-                "(./gradlew -D" + ListTests.DISTRIBUTION_PROPERTY + "=" + distribution.name() +
+                "(let y=1 ; while [ ${y} -ne 0 ] ; do echo \"Preparing build directory\" ; ./gradlew --no-daemon testClasses integrationTestClasses --parallel 2>&1 ; y=$? ; sleep 1 ; done ) && " +
+                "(./gradlew --no-daemon -D" + ListTests.DISTRIBUTION_PROPERTY + "=" + distribution.name() +
                 gitBranch +
                 gitTargetBranch +
                 artifactoryUsername +
