@@ -15,7 +15,7 @@ class DistributedTesting implements Plugin<Project> {
     public void apply(Project project) {
         if (System.getProperty("kubenetize") != null) {
             Properties.setRootProjectType(project.getRootProject().getName());
-            Kubernetizer.forProject(DistributedTestingProject.forProject(project)).kubernetize();
+            Kubernetizer.configuredWith(DistributedTestingConfiguration.fromSystem()).kubernetize(project);
         }
 
         //  Added only so that we can manually run zipTask on the command line as a test.
