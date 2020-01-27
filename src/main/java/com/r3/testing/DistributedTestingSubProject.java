@@ -36,7 +36,7 @@ public final class DistributedTestingSubProject {
     }
 
     private <T extends Task> T createTask(String prefix, Task task, Class<T> taskType, Consumer<T> configure) {
-        return subProject.getRootProject().getTasks().create(newTaskName(prefix, task), taskType, configure::accept);
+        return subProject.getTasks().create(newTaskName(prefix, task), taskType, configure::accept);
     }
 
     public ListTests createListTestsTaskFor(Test task, Consumer<ListTests> configure) {

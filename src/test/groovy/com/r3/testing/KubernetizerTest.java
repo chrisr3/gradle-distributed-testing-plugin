@@ -21,8 +21,7 @@ public class KubernetizerTest {
         testProject.getTasks().create("testClasses", org.gradle.api.tasks.testing.Test.class, test -> test.setGroup("test"));
         testProject.getGradle().getStartParameter().setTaskNames(Arrays.asList("test"));
 
-        Kubernetizer kubernetizer = Kubernetizer.forProject(DistributedTestingProject.forProject(testProject));
-        kubernetizer.kubernetize();
+        Kubernetizer.configuredWith(DistributedTestingConfiguration.fromSystem()).kubernetize(testProject);
 
         List<String> resultingTaskNames = testProject.getTasks().stream().map(Task::getName).collect(Collectors.toList());
 

@@ -92,7 +92,8 @@ public final class DistributedTestingProject {
     public void traverseParallelTestGroups(ParallelTestGroupConfigurer configurer) {
         Map<String, List<Test>> testsGroupedByType = getTestsGroupedByType();
 
-        project.getTasks().withType(ParallelTestGroup.class).stream().distinct().forEach(parallelTestGroup ->
+        Set<ParallelTestGroup> parallelTestGroups = new HashSet<>(project.getTasks().withType(ParallelTestGroup.class));
+        parallelTestGroups.forEach(parallelTestGroup ->
                 configurer.configureParallelTestGroup(
                     parallelTestGroup,
                     parallelTestGroup.getGroups().stream()
