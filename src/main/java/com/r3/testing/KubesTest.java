@@ -303,14 +303,15 @@ public class KubesTest extends DefaultTask {
                 try (KubernetesClient client = getKubernetesClient()) {
                     deletePodAndWaitForDeletion(namespace, podName, client);
                     getProject().getLogger().lifecycle("creating pod: " + podName);
-                    createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
+                    synchronized (this) {
+                        createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
+                        waitForPodToStart(createdPod);
+                    }
                     remainingPods.add(podName);
                     getProject().getLogger().lifecycle("scheduled pod: " + podName);
                 }
 
                 attachStatusListenerToPod(createdPod);
-                waitForPodToStart(createdPod);
-
                 PipedOutputStream stdOutOs = new PipedOutputStream();
                 PipedInputStream stdOutIs = new PipedInputStream(4096);
                 ByteArrayOutputStream errChannelStream = new ByteArrayOutputStream();
@@ -685,8 +686,8 @@ public class KubesTest extends DefaultTask {
     private class RetryablePodOperations {
         private PodResource<Pod, DoneablePod> backingResource;
 
-        public RetryablePodOperations(PodResource<Pod, DoneablePod> podDoneablePodPodResource) {
-            backingResource = podDoneablePodPodResource;
+        public RetryablePodOperations(PodResource<Pod, DoneablePod> backingResource) {
+            this.backingResource = backingResource;
         }
 
         public Pod get() {
