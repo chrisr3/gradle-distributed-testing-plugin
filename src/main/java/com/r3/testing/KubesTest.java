@@ -296,7 +296,7 @@ public class KubesTest extends DefaultTask {
         File outputFile = new File(outputDir, "container-" + podIdx + ".log");
         try {
             // pods might die, so we retry
-            return Retry.fixed(numberOfRetries).run(() -> {
+            return Retry.fixed(numberOfRetries, getProject().getLogger()).run(() -> {
                 outputFile.createNewFile();
                 // remove pod if exists
                 Pod createdPod;
@@ -341,6 +341,7 @@ public class KubesTest extends DefaultTask {
                 return new KubePodResult(podIdx, resCode, outputFile, binaryResults);
             });
         } catch (Retry.RetryException e) {
+            getProject().getLogger().warn("Encountered an exception ");
             try (KubernetesClient client = getKubernetesClient()) {
                 deletePodAndWaitForDeletion(NAMESPACE, podName, client);
                 Pod reCreatedPod = getKubernetesClient().pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));

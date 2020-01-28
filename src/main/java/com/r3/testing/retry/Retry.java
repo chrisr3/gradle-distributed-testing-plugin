@@ -1,28 +1,22 @@
 package com.r3.testing.retry;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.gradle.api.logging.Logger;
 
 import java.util.concurrent.Callable;
 
 public final class Retry {
-    private static final Logger log = LoggerFactory.getLogger(Retry.class);
 
     public interface RetryStrategy {
         <T> T run(Callable<T> op) throws RetryException;
     }
 
     public static final class RetryException extends RuntimeException {
-        public RetryException(String message) {
-            super(message);
-        }
-
         public RetryException(String message, Throwable cause) {
             super(message, cause);
         }
     }
 
-    public static RetryStrategy fixed(int times) {
+    public static RetryStrategy fixed(int times, Logger logger) {
         if (times < 1) throw new IllegalArgumentException();
         return new RetryStrategy() {
             @Override
@@ -34,7 +28,7 @@ public final class Retry {
                         return op.call();
                     } catch (Exception e) {
                         last = e;
-                        log.info("Exception caught: " + e.getMessage());
+                        logger.error("Exception during retryable operation. Will try another " + (times-(run+1)) + " times ", e);
                     }
                     run++;
                 }
