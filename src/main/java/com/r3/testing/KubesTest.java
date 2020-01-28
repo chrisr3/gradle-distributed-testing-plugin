@@ -163,7 +163,7 @@ public class KubesTest extends DefaultTask {
                         .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
                         .databases().list().stream()
                         .filter(db -> db.name().contains(basePodName)).collect(Collectors.toList());
-                for (SqlDatabase db: sqlDatabases) {
+                for (SqlDatabase db : sqlDatabases) {
                     try {
                         db.delete();
                     } catch (Exception ignored) {
@@ -296,7 +296,7 @@ public class KubesTest extends DefaultTask {
         File outputFile = new File(outputDir, "container-" + podIdx + ".log");
         try {
             // pods might die, so we retry
-            return Retry.fixed(numberOfRetries, getProject().getLogger()).run(() -> {
+            return Retry.fixed(numberOfRetries, getProject().getLogger()).call(() -> {
                 outputFile.createNewFile();
                 // remove pod if exists
                 Pod createdPod;
@@ -359,7 +359,7 @@ public class KubesTest extends DefaultTask {
     }
 
     private void deletePodAndWaitForDeletion(String namespace, String podName, KubernetesClient client) {
-        PodResource<Pod, DoneablePod> oldPod = client.pods().inNamespace(namespace).withName(podName);
+        RetryablePodOperations oldPod = new RetryablePodOperations(client.pods().inNamespace(namespace).withName(podName));
         if (oldPod.get() != null) {
             getLogger().lifecycle("deleting pod: {}", podName);
             oldPod.delete();
@@ -367,8 +367,7 @@ public class KubesTest extends DefaultTask {
                 getLogger().info("waiting for pod {} to be removed", podName);
                 try {
                     Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                } catch (InterruptedException ignored) {
                 }
             }
         }
@@ -487,7 +486,7 @@ public class KubesTest extends DefaultTask {
                 .withName("gradlecache")
                 .withNewHostPath()
                 .withType("DirectoryOrCreate")
-                .withPath("/gradle/"+podIdx+"-"+taskToExecuteName)
+                .withPath("/gradle/" + podIdx + "-" + taskToExecuteName)
                 .endHostPath()
                 .endVolume()
                 .addNewVolume()
@@ -606,7 +605,7 @@ public class KubesTest extends DefaultTask {
 
     private List<String> reworkDbNameForASQL(List<String> additionalArgs, String podName) {
         List<String> reworkedArgs = new ArrayList<>();
-        for (String arg: additionalArgs) {
+        for (String arg : additionalArgs) {
             // replace db name placeholder in jdbc connection string
             reworkedArgs.add(arg.replace("corda-db-test", podName + "-db"));
         }
@@ -683,4 +682,19 @@ public class KubesTest extends DefaultTask {
         };
     }
 
+    private class RetryablePodOperations {
+        private PodResource<Pod, DoneablePod> backingResource;
+
+        public RetryablePodOperations(PodResource<Pod, DoneablePod> podDoneablePodPodResource) {
+            backingResource = podDoneablePodPodResource;
+        }
+
+        public Pod get() {
+            return Retry.fixedWithDelay(10, 1000, getProject().getLogger()).call(() -> backingResource.get());
+        }
+
+        public void delete() {
+            Retry.fixedWithDelay(10, 1000, getProject().getLogger()).call(() -> backingResource.delete());
+        }
+    }
 }
