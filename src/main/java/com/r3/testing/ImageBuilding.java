@@ -46,7 +46,7 @@ public class ImageBuilding implements Plugin<Project> {
                     dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
                     dockerBuildImage.getInputDir().set(new File("."));
                     dockerBuildImage.getDockerFile().set(new File(new File("testing"), "Dockerfile"));
-                    if (!System.getProperty("docker.work.dir").isEmpty()) {
+                    if (!System.getProperty("docker.build.image.parameters").isEmpty()) {
                         String buildParameters = System.getProperty("docker.build.image.parameters");
                         List<String> list = Arrays.asList(buildParameters.split(","));
                         for(int i = 0; i < list.size(); i+=2 ) {
