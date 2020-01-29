@@ -51,7 +51,7 @@ public class ImageBuilding implements Plugin<Project> {
                         String buildParameters = System.getProperty("docker.build.image.parameters");
                         List<String> list = Arrays.asList(buildParameters.split(","));
                         for(int i = 0; i < list.size(); i+=2 ) {
-                            project.setProperty(list.get(i), list.get(i+1));
+                            System.setProperty(list.get(i), list.get(i+1));
                         }
                     }
                 });
