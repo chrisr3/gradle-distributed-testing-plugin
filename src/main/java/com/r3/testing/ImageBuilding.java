@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -45,6 +46,13 @@ public class ImageBuilding implements Plugin<Project> {
                     dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
                     dockerBuildImage.getInputDir().set(new File("."));
                     dockerBuildImage.getDockerFile().set(new File(new File("testing"), "Dockerfile"));
+                    if (!System.getProperty("docker.work.dir").isEmpty()) {
+                        String buildParameters = System.getProperty("docker.build.image.parameters");
+                        List<String> list = Arrays.asList(buildParameters.split(","));
+                        for(int i = 0; i < list.size(); i+=2 ) {
+                            dockerBuildImage.setProperty(list.get(i), list.get(i+1));
+                        }
+                    }
                 });
 
         this.buildTask = buildDockerImageForSource;

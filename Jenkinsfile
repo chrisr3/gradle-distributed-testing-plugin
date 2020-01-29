@@ -23,6 +23,7 @@ pipeline {
                             "-Ddocker.push.password=\"\${DOCKER_PUSH_PWD}\" " +
                             "-Ddocker.work.dir=\"/tmp/\${EXECUTOR_NUMBER}\" " +
                             "-Ddocker.build.tag=\"\${DOCKER_TAG_TO_USE}\"" +
+                            "-Ddocker.build.image.parameters=\"buildAgainstOsSnapshot,true\"" +
                             " clean pushBuildImage --stacktrace"
                 }
                 sh "kubectl auth can-i get pods"
