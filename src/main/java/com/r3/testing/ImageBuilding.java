@@ -3,6 +3,7 @@ package com.r3.testing;
 import com.bmuschko.gradle.docker.DockerRegistryCredentials;
 import com.bmuschko.gradle.docker.tasks.container.*;
 import com.bmuschko.gradle.docker.tasks.image.*;
+import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -46,7 +47,7 @@ public class ImageBuilding implements Plugin<Project> {
                     dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
                     dockerBuildImage.getInputDir().set(new File("."));
                     dockerBuildImage.getDockerFile().set(new File(new File("testing"), "Dockerfile"));
-                    if (!System.getProperty("docker.build.image.parameters").isEmpty()) {
+                    if (!StringUtils.isEmpty(System.getProperty("docker.build.image.parameters"))) {
                         String buildParameters = System.getProperty("docker.build.image.parameters");
                         List<String> list = Arrays.asList(buildParameters.split(","));
                         for(int i = 0; i < list.size(); i+=2 ) {
