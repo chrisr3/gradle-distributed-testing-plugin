@@ -47,13 +47,6 @@ public class ImageBuilding implements Plugin<Project> {
                     dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
                     dockerBuildImage.getInputDir().set(new File("."));
                     dockerBuildImage.getDockerFile().set(new File(new File("testing"), "Dockerfile"));
-                    if (!StringUtils.isEmpty(System.getProperty("docker.build.image.parameters"))) {
-                        String buildParameters = System.getProperty("docker.build.image.parameters");
-                        List<String> list = Arrays.asList(buildParameters.split(","));
-                        for(int i = 0; i < list.size(); i+=2 ) {
-                            dockerBuildImage.getBuildArgs().put(list.get(i), list.get(i+1));
-                        }
-                    }
                 });
 
         this.buildTask = buildDockerImageForSource;
@@ -81,6 +74,14 @@ public class ImageBuilding implements Plugin<Project> {
                     map.put(gradleDir.getAbsolutePath(), "/tmp/gradle");
                     map.put(mavenDir.getAbsolutePath(), "/home/root/.m2");
                     dockerCreateContainer.getBinds().set(map);
+
+                    if (!StringUtils.isEmpty(System.getProperty("docker.build.image.parameters"))) {
+                        String buildParameters = System.getProperty("docker.build.image.parameters");
+                        List<String> list = Arrays.asList(buildParameters.split(","));
+                        for(int i = 0; i < list.size(); i+=2 ) {
+                            dockerCreateContainer.getEnvVars().put(list.get(i), list.get(i+1));
+                        }
+                    }
                 });
 
 
