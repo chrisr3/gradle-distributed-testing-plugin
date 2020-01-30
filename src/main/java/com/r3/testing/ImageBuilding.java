@@ -75,8 +75,8 @@ public class ImageBuilding implements Plugin<Project> {
                     map.put(mavenDir.getAbsolutePath(), "/home/root/.m2");
                     dockerCreateContainer.getBinds().set(map);
 
-                    if (!StringUtils.isEmpty(System.getProperty("docker.build.image.parameters"))) {
-                        String buildParameters = System.getProperty("docker.build.image.parameters");
+                    if (!StringUtils.isEmpty(System.getProperty("docker.container.env.parameters"))) {
+                        String buildParameters = System.getProperty("docker.container.env.parameters");
                         List<String> list = Arrays.asList(buildParameters.split(","));
                         for(int i = 0; i < list.size(); i+=2 ) {
                             dockerCreateContainer.getEnvVars().put(list.get(i), list.get(i+1));
