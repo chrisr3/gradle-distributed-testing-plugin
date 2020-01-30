@@ -79,7 +79,8 @@ public class ImageBuilding implements Plugin<Project> {
                         String buildParameters = System.getProperty("docker.container.env.parameters");
                         List<String> list = Arrays.asList(buildParameters.split(","));
                         for(int i = 0; i < list.size(); i+=2 ) {
-                            dockerCreateContainer.getEnvVars().put(list.get(i), list.get(i+1));
+                            project.getLogger().info("Setting ENV variable: " + list.get(i) + " with value " + list.get(i+1));
+                            dockerCreateContainer.withEnvVar(list.get(i), list.get(i+1));
                         }
                     }
                 });
