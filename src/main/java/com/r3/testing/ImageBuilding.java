@@ -47,6 +47,14 @@ public class ImageBuilding implements Plugin<Project> {
                     dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
                     dockerBuildImage.getInputDir().set(new File("."));
                     dockerBuildImage.getDockerFile().set(new File(new File("testing"), "Dockerfile"));
+                    if (!StringUtils.isEmpty(System.getProperty("docker.image.build.arg"))) {
+                        String buildParameters = System.getProperty("docker.image.build.arg");
+                        List<String> list = Arrays.asList(buildParameters.split(","));
+                        for(int i = 0; i < list.size(); i+=2 ) {
+                            project.getLogger().info("Setting build argument: " + list.get(i) + " with value " + list.get(i+1));
+                            dockerBuildImage.getBuildArgs().put(list.get(i), list.get(i+1));
+                        }
+                    }
                 });
 
         this.buildTask = buildDockerImageForSource;
