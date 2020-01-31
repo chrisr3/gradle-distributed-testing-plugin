@@ -37,24 +37,24 @@ public class PodAllocator {
                              String prefix,
                              List<String> taints) {
 
-        Config config = getConfig();
-        KubernetesClient client = new DefaultKubernetesClient(config);
-
-        List<Job> podsToRequest = IntStream.range(0, number).mapToObj(i -> buildJob("pa-" + prefix + i, coresPerPod, memoryPerPod, taints)).collect(Collectors.toList());
-        List<Job> createdJobs = podsToRequest.stream().map(requestedJob -> {
-            String msg = "PreAllocating " + requestedJob.getMetadata().getName();
-            if (logger instanceof org.gradle.api.logging.Logger) {
-                ((org.gradle.api.logging.Logger) logger).quiet(msg);
-            } else {
-                logger.info(msg);
-            }
-            return client.batch().jobs().inNamespace(KubesTest.NAMESPACE).create(requestedJob);
-        }).collect(Collectors.toList());
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            KubernetesClient tearDownClient = new DefaultKubernetesClient(getConfig());
-            tearDownClient.batch().jobs().delete(createdJobs);
-        }));
+//        Config config = getConfig();
+//        KubernetesClient client = new DefaultKubernetesClient(config);
+//
+//        List<Job> podsToRequest = IntStream.range(0, number).mapToObj(i -> buildJob("pa-" + prefix + i, coresPerPod, memoryPerPod, taints)).collect(Collectors.toList());
+//        List<Job> createdJobs = podsToRequest.stream().map(requestedJob -> {
+//            String msg = "PreAllocating " + requestedJob.getMetadata().getName();
+//            if (logger instanceof org.gradle.api.logging.Logger) {
+//                ((org.gradle.api.logging.Logger) logger).quiet(msg);
+//            } else {
+//                logger.info(msg);
+//            }
+//            return client.batch().jobs().inNamespace(KubesTest.NAMESPACE).create(requestedJob);
+//        }).collect(Collectors.toList());
+//
+//        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+//            KubernetesClient tearDownClient = new DefaultKubernetesClient(getConfig());
+//            tearDownClient.batch().jobs().delete(createdJobs);
+//        }));
     }
 
     private Config getConfig() {
@@ -68,46 +68,46 @@ public class PodAllocator {
     }
 
     public void tearDownPods(String prefix) {
-        Config config = getConfig();
-        KubernetesClient client = new DefaultKubernetesClient(config);
-        Stream<Job> jobsToDelete = client.batch().jobs().inNamespace(KubesTest.NAMESPACE).list()
-                .getItems()
-                .stream()
-                .sorted(Comparator.comparing(p -> p.getMetadata().getName()))
-                .filter(foundPod -> foundPod.getMetadata().getName().contains(prefix));
-
-        List<CompletableFuture<Job>> deleteFutures = jobsToDelete.map(job -> {
-            CompletableFuture<Job> result = new CompletableFuture<>();
-            Watch watch = client.batch().jobs().inNamespace(job.getMetadata().getNamespace()).withName(job.getMetadata().getName()).watch(new Watcher<Job>() {
-                @Override
-                public void eventReceived(Action action, Job resource) {
-                    if (action == Action.DELETED) {
-                        result.complete(resource);
-                        String msg = "Successfully deleted job " + job.getMetadata().getName();
-                        logger.info(msg);
-                    }
-                }
-
-                @Override
-                public void onClose(KubernetesClientException cause) {
-                    String message = "Failed to delete job " + job.getMetadata().getName();
-                    if (logger instanceof org.gradle.api.logging.Logger) {
-                        ((org.gradle.api.logging.Logger) logger).error(message);
-                    } else {
-                        logger.info(message);
-                    }
-                    result.completeExceptionally(cause);
-                }
-            });
-            client.batch().jobs().delete(job);
-            return result;
-        }).collect(Collectors.toList());
-
-        try {
-            CompletableFuture.allOf(deleteFutures.toArray(new CompletableFuture[0])).get(5, TimeUnit.MINUTES);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            //ignore - there's nothing left to do
-        }
+//        Config config = getConfig();
+//        KubernetesClient client = new DefaultKubernetesClient(config);
+//        Stream<Job> jobsToDelete = client.batch().jobs().inNamespace(KubesTest.NAMESPACE).list()
+//                .getItems()
+//                .stream()
+//                .sorted(Comparator.comparing(p -> p.getMetadata().getName()))
+//                .filter(foundPod -> foundPod.getMetadata().getName().contains(prefix));
+//
+//        List<CompletableFuture<Job>> deleteFutures = jobsToDelete.map(job -> {
+//            CompletableFuture<Job> result = new CompletableFuture<>();
+//            Watch watch = client.batch().jobs().inNamespace(job.getMetadata().getNamespace()).withName(job.getMetadata().getName()).watch(new Watcher<Job>() {
+//                @Override
+//                public void eventReceived(Action action, Job resource) {
+//                    if (action == Action.DELETED) {
+//                        result.complete(resource);
+//                        String msg = "Successfully deleted job " + job.getMetadata().getName();
+//                        logger.info(msg);
+//                    }
+//                }
+//
+//                @Override
+//                public void onClose(KubernetesClientException cause) {
+//                    String message = "Failed to delete job " + job.getMetadata().getName();
+//                    if (logger instanceof org.gradle.api.logging.Logger) {
+//                        ((org.gradle.api.logging.Logger) logger).error(message);
+//                    } else {
+//                        logger.info(message);
+//                    }
+//                    result.completeExceptionally(cause);
+//                }
+//            });
+//            client.batch().jobs().delete(job);
+//            return result;
+//        }).collect(Collectors.toList());
+//
+//        try {
+//            CompletableFuture.allOf(deleteFutures.toArray(new CompletableFuture[0])).get(5, TimeUnit.MINUTES);
+//        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+//            //ignore - there's nothing left to do
+//        }
     }
 
 

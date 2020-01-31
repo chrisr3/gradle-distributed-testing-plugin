@@ -17,7 +17,7 @@ apply plugin: 'com.gradle.plugin-publish'
 apply plugin: "com.bmuschko.docker-remote-api"
 
 group = 'com.r3.testing'
-version = '1.2-SNAPSHOT'
+version = '1.2-LOCAL-K8S-SHARED-CACHE-SNAPSHOT'
 
 ext {
     vcsUrl = 'https://github.com/corda/gradle-distributed-testing-plugin'
@@ -132,6 +132,12 @@ task allParallelUnitTest(type: ParallelTestGroup) {
     memoryInGbPerFork 12
     distribute DistributeTestsBy.CLASS
     nodeTaints "small"
+}
+
+task integrationTestClasses {
+    doFirst {
+        logger.lifecycle("placeholder for integration test compilation to allow plugin testing")
+    }
 }
 
 apply plugin: ImageBuilding

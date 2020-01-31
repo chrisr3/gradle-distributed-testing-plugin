@@ -163,7 +163,7 @@ public class KubesTest extends DefaultTask {
                         .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
                         .databases().list().stream()
                         .filter(db -> db.name().contains(basePodName)).collect(Collectors.toList());
-                for (SqlDatabase db: sqlDatabases) {
+                for (SqlDatabase db : sqlDatabases) {
                     try {
                         db.delete();
                     } catch (Exception ignored) {
@@ -296,21 +296,22 @@ public class KubesTest extends DefaultTask {
         File outputFile = new File(outputDir, "container-" + podIdx + ".log");
         try {
             // pods might die, so we retry
-            return Retry.fixed(numberOfRetries).run(() -> {
+            return Retry.fixed(numberOfRetries, getProject().getLogger()).call(() -> {
                 outputFile.createNewFile();
                 // remove pod if exists
                 Pod createdPod;
                 try (KubernetesClient client = getKubernetesClient()) {
                     deletePodAndWaitForDeletion(namespace, podName, client);
                     getProject().getLogger().lifecycle("creating pod: " + podName);
-                    createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null));
+                    synchronized (this) {
+                        createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
+                        waitForPodToStart(createdPod);
+                    }
                     remainingPods.add(podName);
                     getProject().getLogger().lifecycle("scheduled pod: " + podName);
                 }
 
                 attachStatusListenerToPod(createdPod);
-                waitForPodToStart(createdPod);
-
                 PipedOutputStream stdOutOs = new PipedOutputStream();
                 PipedInputStream stdOutIs = new PipedInputStream(4096);
                 ByteArrayOutputStream errChannelStream = new ByteArrayOutputStream();
@@ -341,9 +342,10 @@ public class KubesTest extends DefaultTask {
                 return new KubePodResult(podIdx, resCode, outputFile, binaryResults);
             });
         } catch (Retry.RetryException e) {
+            getProject().getLogger().warn("Encountered an exception ");
             try (KubernetesClient client = getKubernetesClient()) {
                 deletePodAndWaitForDeletion(NAMESPACE, podName, client);
-                Pod reCreatedPod = getKubernetesClient().pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null));
+                Pod reCreatedPod = getKubernetesClient().pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
                 client.resource(reCreatedPod).waitUntilReady(10, TimeUnit.MINUTES);
                 Collection<File> downloadedFiles = downloadTestXmlFromPod(namespace, reCreatedPod);
                 deletePodAndWaitForDeletion(NAMESPACE, podName, client);
@@ -358,7 +360,7 @@ public class KubesTest extends DefaultTask {
     }
 
     private void deletePodAndWaitForDeletion(String namespace, String podName, KubernetesClient client) {
-        PodResource<Pod, DoneablePod> oldPod = client.pods().inNamespace(namespace).withName(podName);
+        RetryablePodOperations oldPod = new RetryablePodOperations(client.pods().inNamespace(namespace).withName(podName));
         if (oldPod.get() != null) {
             getLogger().lifecycle("deleting pod: {}", podName);
             oldPod.delete();
@@ -366,8 +368,7 @@ public class KubesTest extends DefaultTask {
                 getLogger().info("waiting for pod {} to be removed", podName);
                 try {
                     Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                } catch (InterruptedException ignored) {
                 }
             }
         }
@@ -405,22 +406,22 @@ public class KubesTest extends DefaultTask {
         return waiter;
     }
 
-    private Pod buildPodRequest(String podName, PersistentVolumeClaim pvc, boolean withDb) {
+    private Pod buildPodRequest(String podName, PersistentVolumeClaim pvc, boolean withDb, int podIdx) {
         if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
             // Azure SQL
             setUpAzureSQLDbSchemaForPod(podName);
-            return buildPodRequestWithOnlyWorkerNode(podName, pvc);
+            return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
         } else if (withDb) {
             // Other DBs
-            return buildPodRequestWithWorkerNodeAndDbContainer(podName, pvc);
+            return buildPodRequestWithWorkerNodeAndDbContainer(podName, pvc, podIdx);
         } else {
             // No DB / H2
-            return buildPodRequestWithOnlyWorkerNode(podName, pvc);
+            return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
         }
     }
 
-    private Pod buildPodRequestWithOnlyWorkerNode(String podName, PersistentVolumeClaim pvc) {
-        return getBasePodDefinition(podName, pvc)
+    private Pod buildPodRequestWithOnlyWorkerNode(String podName, PersistentVolumeClaim pvc, int podIdx) {
+        return getBasePodDefinition(podName, pvc, podIdx)
                 .addToRequests("cpu", new Quantity(numberOfCoresPerFork.toString()))
                 .addToRequests("memory", new Quantity(memoryGbPerFork.toString()))
                 .endResources()
@@ -433,8 +434,8 @@ public class KubesTest extends DefaultTask {
                 .build();
     }
 
-    private Pod buildPodRequestWithWorkerNodeAndDbContainer(String podName, PersistentVolumeClaim pvc) {
-        return getBasePodDefinition(podName, pvc)
+    private Pod buildPodRequestWithWorkerNodeAndDbContainer(String podName, PersistentVolumeClaim pvc, int podIdx) {
+        return getBasePodDefinition(podName, pvc, podIdx)
                 .addToRequests("cpu", new Quantity(Integer.valueOf(numberOfCoresPerFork - 1).toString()))
                 .addToRequests("memory", new Quantity(Integer.valueOf(memoryGbPerFork - 1).toString() + "Gi"))
                 .endResources()
@@ -477,7 +478,7 @@ public class KubesTest extends DefaultTask {
         }
     }
 
-    private ContainerFluent.ResourcesNested<PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>>> getBasePodDefinition(String podName, PersistentVolumeClaim pvc) {
+    private ContainerFluent.ResourcesNested<PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>>> getBasePodDefinition(String podName, PersistentVolumeClaim pvc, int podIdx) {
         return new PodBuilder()
                 .withNewMetadata().withName(podName).endMetadata()
                 .withNewSpec()
@@ -486,7 +487,7 @@ public class KubesTest extends DefaultTask {
                 .withName("gradlecache")
                 .withNewHostPath()
                 .withType("DirectoryOrCreate")
-                .withPath("/tmp/gradle")
+                .withPath("/gradle/" + podIdx + "-" + taskToExecuteName)
                 .endHostPath()
                 .endVolume()
                 .addNewVolume()
@@ -588,8 +589,8 @@ public class KubesTest extends DefaultTask {
 
         String shellScript = "(let x=1 ; while [ ${x} -ne 0 ] ; do echo \"Waiting for DNS\" ; curl services.gradle.org > /dev/null 2>&1 ; x=$? ; sleep 1 ; done ) && "
                 + " cd /tmp/source && " +
-                "(let y=1 ; while [ ${y} -ne 0 ] ; do echo \"Preparing build directory\" ; ./gradlew testClasses --parallel 2>&1 ; y=$? ; sleep 1 ; done ) && " +
-                "(./gradlew -D" + ListTests.DISTRIBUTION_PROPERTY + "=" + distribution.name() +
+                "(let y=1 ; while [ ${y} -ne 0 ] ; do echo \"Preparing build directory\" ; ./gradlew --no-daemon testClasses integrationTestClasses --parallel 2>&1 ; y=$? ; sleep 1 ; done ) && " +
+                "(./gradlew --no-daemon -D" + ListTests.DISTRIBUTION_PROPERTY + "=" + distribution.name() +
                 gitBranch +
                 gitTargetBranch +
                 artifactoryUsername +
@@ -605,7 +606,7 @@ public class KubesTest extends DefaultTask {
 
     private List<String> reworkDbNameForASQL(List<String> additionalArgs, String podName) {
         List<String> reworkedArgs = new ArrayList<>();
-        for (String arg: additionalArgs) {
+        for (String arg : additionalArgs) {
             // replace db name placeholder in jdbc connection string
             reworkedArgs.add(arg.replace("corda-db-test", podName + "-db"));
         }
@@ -682,4 +683,19 @@ public class KubesTest extends DefaultTask {
         };
     }
 
+    private class RetryablePodOperations {
+        private PodResource<Pod, DoneablePod> backingResource;
+
+        public RetryablePodOperations(PodResource<Pod, DoneablePod> backingResource) {
+            this.backingResource = backingResource;
+        }
+
+        public Pod get() {
+            return Retry.fixedWithDelay(10, 1000, getProject().getLogger()).call(() -> backingResource.get());
+        }
+
+        public void delete() {
+            Retry.fixedWithDelay(10, 1000, getProject().getLogger()).call(() -> backingResource.delete());
+        }
+    }
 }
