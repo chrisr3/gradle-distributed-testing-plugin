@@ -29,6 +29,7 @@ import org.gradle.api.internal.tasks.testing.report.DefaultTestReport;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.testing.Test;
+import org.gradle.internal.impldep.org.apache.commons.io.input.ReversedLinesFileReader;
 import org.gradle.internal.logging.ConsoleRenderer;
 import org.gradle.internal.operations.BuildOperationExecutor;
 
@@ -36,6 +37,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -155,7 +157,16 @@ public class KubesReporting extends DefaultTask {
                         containersWithNonZeroReturnCodes.forEach(podResult -> {
                             try {
                                 System.out.println("\n##### CONTAINER " + podResult.getPodIndex() + " OUTPUT START #####");
-                                IOUtils.copy(new FileInputStream(podResult.getOutput()), System.out);
+                                try (ReversedLinesFileReader reversedLine = new ReversedLinesFileReader(podResult.getOutput(), Charset.defaultCharset())) {
+                                    for (int i = 0; i < 1000; i++) {
+                                        String stringToWrite = reversedLine.readLine();
+                                        if (stringToWrite != null) {
+                                            System.out.println(stringToWrite);
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
                                 System.out.println("##### CONTAINER " + podResult.getPodIndex() + "  OUTPUT END #####\n");
                             } catch (IOException ignored) {
                             }

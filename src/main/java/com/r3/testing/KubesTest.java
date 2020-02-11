@@ -524,6 +524,7 @@ public class KubesTest extends DefaultTask {
                     }
                     out.write(line);
                     out.newLine();
+                    out.flush();
                 }
             } catch (IOException ignored) {
             }
