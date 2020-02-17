@@ -42,13 +42,13 @@ task allPostgresDistributedDatabaseIntegrationTest(type: ParallelTestGroup) {
 }
 ```
 
-| Property           | Type         | Description                                 |
-|--------------------|--------------|---------------------------------------------|
-| `testGroups`       | List\<String> | Name of Gradle project test group e.g. `test` `integrationTest` `smokeTest` |
-| `numberOfShards`   | int          | The number of test buckets / k8s pods.      |
-| `streamOutput`	 | boolean		| when this is false, only containers will "failed" exit codes will be printed to stdout |
-| `coresPerFork`	 | int 			| Minimum required number of cores on AKS node |
-| `memoryInGbPerFork`		 | int 			| Minimum required amount of memory on AKS node |
+| Property | Type | Description |
+|----------|------|-------------|
+| `testGroups` | List\<String> | Name of Gradle project test group e.g. `test` `integrationTest` `smokeTest` |
+| `numberOfShards` | int | The number of test buckets / k8s pods |
+| `streamOutput` | boolean | When this is false, only containers with "failed" exit codes will be printed to stdout |
+| `coresPerFork` | int | Minimum required number of cores on AKS node |
+| `memoryInGbPerFork` | int | Minimum required amount of memory on AKS node |
 | `podLogLevel` | PodLogLevel | Enumerated: QUIET, WARN, INFO, DEBUG |
 | `distribute` | DistributedTestsBy | Enumerated: CLASS, METHOD |
 | `nodeTaints` | List\<String> | Tolerated node taints | 
