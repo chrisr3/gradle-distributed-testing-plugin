@@ -1,6 +1,9 @@
 # Gradle Distributed Testing Plugin
 
-The Gradle Distributed Testing Plugin enables distributed testing using Kubernetes to improve build times. The entire set of tests is divided into a number of buckets, approximately evening out the duration between them, and are subsequently executed in a distributed fashion on a matching number of pods. In this way, it is possible to "parallelise" test execution.
+The Gradle Distributed Testing Plugin enables distributed testing using Kubernetes to speed up build times. The entire 
+set of tests is divided into a number of buckets, approximately evening out the duration between them, and are 
+subsequently executed in a distributed fashion on a matching number of pods. In this way, it is possible to 
+"parallelise" the test execution.
 
 ## Usage
 To install the plugin, put the following in the host project root `build.gradle`:
@@ -11,12 +14,14 @@ import com.r3.testing.ParallelTestGroup
 buildscript {
 	dependencies {
 		classpath group: "com.r3.testing", name: "gradle-distributed-testing-plugin", version: "1.2-LOCAL-K8S-SHARED-CACHE-SNAPSHOT", changing: true
+		classpath "com.bmuschko:gradle-docker-plugin:5.0.0"
         ...
 	}
 }
 
 apply plugin: 'com.r3.testing.distributed-testing'
 apply plugin: 'com.r3.testing.image-building'
+apply plugin: 'com.bmuschko.docker-remote-api'
 
 ```
 
@@ -53,12 +58,22 @@ task allPostgresDistributedDatabaseIntegrationTest(type: ParallelTestGroup) {
 | `distribute` | DistributedTestsBy | Enumerated: CLASS, METHOD |
 | `nodeTaints` | List\<String> | Tolerated node taints | 
 
-## Development
+Finally, ensure that the build base `Dockerfile` can be found in the host project at `hostProjectRootDir/testing/Dockerfile`.
 
-To test changes made to the plugin, the JAR can be published to the local Maven repository via `./gradlew publishToMavenLocal`. Subsequently `mavenLocal()` should be added as the first entry in the host project root `build.gradle` `repositories` block, to ensure that the newly published JAR is used to resolve the dependency. The project can then be built normally.
+## Development / testing changes
 
-Distributed test tasks can be tested by executing `./gradlew allExampleDistributedIntegrationTest -Dkubenetize -Ddocker.push.password=container-registry-password`. Either Minikube or another specified k8s cluster can be used to run the pods. e.g. [Connect to AKS](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough#connect-to-the-cluster) and set `kubectl config use-context [your-aks-cluster-name]`.
+To test changes made to the plugin, the JAR can be published to the local Maven repository via 
+`./gradlew publishToMavenLocal`. Subsequently `mavenLocal()` should be added as the first entry in the host project 
+root `build.gradle` `repositories` block, to ensure that the newly published JAR is used to resolve the dependency. 
+The project can then be built normally.
+
+Distributed test tasks can be tested by executing 
+`./gradlew allExampleDistributedIntegrationTest -Dkubenetize -Ddocker.push.password=some-password`. Either Minikube or 
+another specified k8s cluster can be used to run the pods. 
+e.g. [Connect to AKS](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough#connect-to-the-cluster) 
+and set `kubectl config use-context [your-aks-cluster-name]`.
 
 ## Tips
-It can be useful to alter the plugin to only run a single test to get rapid feedback during development. This can be achieved by replacing the `fullTaskToExecutePath` in plugin `KubesTest` with e.g. `:integrationTest:someModule:someTest.
-Additionally, it can be useful to set the `numberOfShards` to 1 on the distributed test task to run a single pod.
+It can be useful to alter the plugin to only run a single test to get rapid feedback during development. This can be 
+achieved by replacing the `fullTaskToExecutePath` in plugin `KubesTest` with e.g. `:integrationTest:someModule:someTest`.
+Additionally, it can be useful to set the `numberOfShards` / pods to 1 on the distributed test task.
