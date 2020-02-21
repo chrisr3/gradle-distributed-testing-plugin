@@ -1,8 +1,17 @@
 package com.r3.testing;
 
 import com.bmuschko.gradle.docker.DockerRegistryCredentials;
-import com.bmuschko.gradle.docker.tasks.container.*;
-import com.bmuschko.gradle.docker.tasks.image.*;
+import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer;
+import com.bmuschko.gradle.docker.tasks.container.DockerLogsContainer;
+import com.bmuschko.gradle.docker.tasks.container.DockerRemoveContainer;
+import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer;
+import com.bmuschko.gradle.docker.tasks.container.DockerWaitContainer;
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage;
+import com.bmuschko.gradle.docker.tasks.image.DockerCommitImage;
+import com.bmuschko.gradle.docker.tasks.image.DockerPullImage;
+import com.bmuschko.gradle.docker.tasks.image.DockerPushImage;
+import com.bmuschko.gradle.docker.tasks.image.DockerRemoveImage;
+import com.bmuschko.gradle.docker.tasks.image.DockerTagImage;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
@@ -14,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 
 /**
@@ -47,12 +57,13 @@ public class ImageBuilding implements Plugin<Project> {
                     dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
                     dockerBuildImage.getInputDir().set(new File("."));
                     dockerBuildImage.getDockerFile().set(new File(new File("testing"), "Dockerfile"));
-                    if (!StringUtils.isEmpty(System.getProperty("docker.image.build.arg"))) {
-                        String buildParameters = System.getProperty("docker.image.build.arg");
-                        List<String> list = Arrays.asList(buildParameters.split(","));
-                        for(int i = 0; i < list.size(); i+=2 ) {
-                            project.getLogger().info("Setting build argument: " + list.get(i) + " with value " + list.get(i+1));
-                            dockerBuildImage.getBuildArgs().put(list.get(i), list.get(i+1));
+                    Properties props = System.getProperties();
+                    for (Object obj : props.keySet()) {
+                        if (obj.toString().contains("docker.image.build.arg.")) {
+                            String key = obj.toString().substring(23);
+                            String value = props.getProperty(obj.toString());
+                            project.getLogger().info("Setting build argument: " + key + " with value " + value);
+                            dockerBuildImage.getBuildArgs().put(key, value);
                         }
                     }
                 });
@@ -82,13 +93,13 @@ public class ImageBuilding implements Plugin<Project> {
                     map.put(gradleDir.getAbsolutePath(), "/tmp/gradle");
                     map.put(mavenDir.getAbsolutePath(), "/home/root/.m2");
                     dockerCreateContainer.getBinds().set(map);
-
-                    if (!StringUtils.isEmpty(System.getProperty("docker.container.env.parameters"))) {
-                        String buildParameters = System.getProperty("docker.container.env.parameters");
-                        List<String> list = Arrays.asList(buildParameters.split(","));
-                        for(int i = 0; i < list.size(); i+=2 ) {
-                            project.getLogger().info("Setting ENV variable: " + list.get(i) + " with value " + list.get(i+1));
-                            dockerCreateContainer.withEnvVar(list.get(i), list.get(i+1));
+                    Properties props = System.getProperties();
+                    for (Object obj : props.keySet()) {
+                        if (obj.toString().contains("docker.container.env.parameter.")) {
+                            String key = obj.toString().substring(31);
+                            String value = props.getProperty(obj.toString());
+                            project.getLogger().info("Setting ENV variable: " + key + " with value " + value);
+                            dockerCreateContainer.withEnvVar(key, value);
                         }
                     }
                 });
