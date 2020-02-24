@@ -12,16 +12,16 @@ import com.bmuschko.gradle.docker.tasks.image.DockerPullImage;
 import com.bmuschko.gradle.docker.tasks.image.DockerPushImage;
 import com.bmuschko.gradle.docker.tasks.image.DockerRemoveImage;
 import com.bmuschko.gradle.docker.tasks.image.DockerTagImage;
-import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
@@ -32,6 +32,7 @@ import java.util.UUID;
  */
 public class ImageBuilding implements Plugin<Project> {
 
+    private static final Logger log = LoggerFactory.getLogger(ImageBuilding.class);
     public static final String registryName = "stefanotestingcr.azurecr.io/testing";
     public static final String PROVIDE_TAG_FOR_BUILDING_PROPERTY = "docker.build.tag";
     public static final String PROVIDE_TAG_FOR_RUNNING_PROPERTY = "docker.run.tag";
@@ -62,7 +63,7 @@ public class ImageBuilding implements Plugin<Project> {
                         if (obj.toString().contains("docker.image.build.arg.")) {
                             String key = obj.toString().substring(23);
                             String value = props.getProperty(obj.toString());
-                            project.getLogger().info("Setting build argument: " + key + " with value " + value);
+                            log.info("Setting build argument: " + key + " with value " + value);
                             dockerBuildImage.getBuildArgs().put(key, value);
                         }
                     }
@@ -85,7 +86,7 @@ public class ImageBuilding implements Plugin<Project> {
                             mavenDir.mkdirs();
                         }
 
-                        project.getLogger().info("Will use: " + gradleDir.getAbsolutePath() + " for caching gradle artifacts");
+                        log.info("Will use: " + gradleDir.getAbsolutePath() + " for caching gradle artifacts");
                     });
                     dockerCreateContainer.dependsOn(buildDockerImageForSource);
                     dockerCreateContainer.targetImageId(buildDockerImageForSource.getImageId());
@@ -98,7 +99,7 @@ public class ImageBuilding implements Plugin<Project> {
                         if (obj.toString().contains("docker.container.env.parameter.")) {
                             String key = obj.toString().substring(31);
                             String value = props.getProperty(obj.toString());
-                            project.getLogger().info("Setting ENV variable: " + key + " with value " + value);
+                            log.info("Setting ENV variable: " + key + " with value " + value);
                             dockerCreateContainer.withEnvVar(key, value);
                         }
                     }
