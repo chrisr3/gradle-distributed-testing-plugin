@@ -24,7 +24,9 @@ pipeline {
                             "-Ddocker.work.dir=\"/tmp/\${EXECUTOR_NUMBER}\" " +
                             "-Ddocker.build.tag=\"\${DOCKER_TAG_TO_USE}\" " +
                             "-Ddocker.build.image.arg.testArg=\"true\" " +
-                            "-Ddocker.container.env.parameter.testParam=\"true\"" +
+                            "-Ddocker.container.env.parameter.testParam=\"true\" " +
+                            "-Ddocker.build.image.arg.testArg2=\"true\" " +
+                            "-Ddocker.container.env.parameter.testParam2=\"true\"" +
                             " clean pushBuildImage --stacktrace"
                 }
                 sh "kubectl auth can-i get pods"
