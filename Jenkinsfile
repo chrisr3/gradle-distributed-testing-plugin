@@ -27,7 +27,7 @@ pipeline {
                             "-Ddocker.container.env.parameter.testParam=\"true\" " +
                             "-Ddocker.build.image.arg.testArg2=\"true\" " +
                             "-Ddocker.container.env.parameter.testParam2=\"true\"" +
-                            " clean pushBuildImage --stacktrace"
+                            " clean pushBuildImage --stacktrace --info"
                 }
                 sh "kubectl auth can-i get pods"
             }
