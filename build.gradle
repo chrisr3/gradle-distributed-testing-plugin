@@ -126,10 +126,12 @@ wrapper {
     distributionType = Wrapper.DistributionType.ALL
 }
 
+ext.generalPurpose = new Yaml().loadAs(new File("generalPurpose.yml").newInputStream(), InfrastructureProfile.class)
+
 task allParallelUnitTest(type: ParallelTestGroup) {
     podLogLevel PodLogLevel.INFO
     testGroups "test"
-    profile new Yaml().loadAs(new File("generalPurpose.yml").newInputStream(), InfrastructureProfile.class)
+    profile generalPurpose
     distribute DistributeTestsBy.CLASS
 }
 
