@@ -9,15 +9,20 @@ import org.gradle.api.tasks.testing.TestDescriptor;
 import org.gradle.api.tasks.testing.TestFilter;
 import org.gradle.api.tasks.testing.TestResult;
 import org.jetbrains.annotations.NotNull;
+import org.junit.platform.launcher.TestPlan;
+import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
+import org.junit.platform.launcher.core.LauncherFactory;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.r3.testing.TestPlanUtils.getTestClasses;
+import static com.r3.testing.TestPlanUtils.getTestMethods;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
 
 public final class TestDistributor {
 
@@ -42,6 +47,18 @@ public final class TestDistributor {
     }
 
     private void distribute(DistributedTestingSubProject subProject, List<Task> requestedTasks, Test test) {
+        logInfo("--- debug ---");
+        TestPlan testPlan = LauncherFactory.create().discover(
+                LauncherDiscoveryRequestBuilder
+                        .request()
+                        .selectors(selectPackage("com"))
+                        .build());
+        Set<String> classesResults = new HashSet<>(getTestClasses(testPlan));
+        System.out.println(testPlan.countTestIdentifiers(x -> true));
+        classesResults.forEach(System.out::println);
+        Set<String> methodResults = new HashSet<>(getTestMethods(testPlan));
+        methodResults.forEach(System.out::println);
+        logInfo("--- end debug ---");
         logInfo("Evaluating " + test.getPath());
         if (requestedTasks.contains(test) && !test.hasProperty("ignoreForDistribution")) {
             logInfo("Modifying " + test.getPath());

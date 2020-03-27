@@ -1,20 +1,24 @@
 package com.r3.testing;
 
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ClassInfo;
-import io.github.classgraph.ClassInfoList;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.tasks.TaskAction;
-import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Test;
+import org.junit.platform.launcher.TestPlan;
+import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
+import org.junit.platform.launcher.core.LauncherFactory;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+
+import static com.r3.testing.TestPlanUtils.getTestClasses;
+import static com.r3.testing.TestPlanUtils.getTestMethods;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
 
 interface TestLister {
     List<String> getAllTestsDiscovered();
@@ -46,51 +50,39 @@ public class ListTests extends DefaultTask implements TestLister {
 
     @TaskAction
     void discoverTests() {
-        Collection<String> results;
+        System.out.println("--- discoverTests ---");
+        TestPlan testPlan = LauncherFactory.create().discover(
+                LauncherDiscoveryRequestBuilder
+                        .request()
+                        // TODO: Devise mechanism for package selection
+                        .selectors(selectPackage("com"))
+                        .build());
+        Set<String> results;
+
+        Set<String> methodResults = new HashSet<>(getTestMethods(testPlan));
+        methodResults.forEach(System.out::println);
         switch (distribution) {
             case METHOD:
-                results = getClassGraphStreamOfTestClasses()
-                        .map(classInfo -> classInfo.getMethodInfo().filter(methodInfo -> methodInfo.hasAnnotation("org.junit.Test"))
-                                .stream().map(methodInfo -> classInfo.getName() + "." + methodInfo.getName()))
-                        .flatMap(Function.identity())
-                        .collect(Collectors.toSet());
-
-                this.allTests = results.stream().sorted().collect(Collectors.toList());
+                results = getTestMethods(testPlan).stream().collect(Collectors.toSet());
+                this.allTests = results.stream().collect(Collectors.toList());
+                System.out.println(testPlan.countTestIdentifiers(x -> true));
+                System.out.println("----M");
+                results.forEach(System.out::println);
+                System.out.println("--- end discoverTests methods ---");
                 break;
             case CLASS:
-                results = getClassGraphStreamOfTestClasses()
-                        .map(ClassInfo::getName)
-                        .collect(Collectors.toSet());
-                this.allTests = results.stream().sorted().collect(Collectors.toList());
+                results = getTestClasses(testPlan).stream().collect(Collectors.toSet());
+                this.allTests = results.stream().collect(Collectors.toList());
+                System.out.println(testPlan.countTestIdentifiers(x -> true));
+                System.out.println("----C");
+                results.forEach(System.out::println);
+                System.out.println("--- end discoverTest classes ---");
                 break;
         }
     }
 
-    @NotNull
-    private Stream<ClassInfo> getClassGraphStreamOfTestClasses() {
-        Stream<ClassInfo> junit4ClassGraphStream = getClassGraphStreamForAnnotation("org.junit.Test");
-        Stream<ClassInfo> junit5ClassGraphStream = getClassGraphStreamForAnnotation("org.junit.jupiter.api.Test");
-        return Stream.concat(junit4ClassGraphStream, junit5ClassGraphStream);
-    }
-
-    @NotNull
-    private Stream<ClassInfo> getClassGraphStreamForAnnotation(String annotation) {
-        return new ClassGraph()
-                .enableClassInfo()
-                .enableMethodInfo()
-                .ignoreClassVisibility()
-                .ignoreMethodVisibility()
-                .enableAnnotationInfo()
-                .overrideClasspath(scanClassPath)
-                .scan()
-                .getClassesWithMethodAnnotation(annotation)
-                .stream()
-                .map(classInfo -> {
-                    ClassInfoList returnList = new ClassInfoList();
-                    returnList.add(classInfo);
-                    returnList.addAll(classInfo.getSubclasses());
-                    return returnList;
-                })
-                .flatMap(ClassInfoList::stream);
+    @Test
+    public void someTest() {
+        assertTrue(true);
     }
 }

@@ -92,13 +92,17 @@ public final class DistributedTestingProject {
     public void traverseParallelTestGroups(ParallelTestGroupConfigurer configurer) {
         Map<String, List<Test>> testsGroupedByType = getTestsGroupedByType();
 
+        logInfo("--- traversing parallel test group ---");
         Set<ParallelTestGroup> parallelTestGroups = new HashSet<>(project.getTasks().withType(ParallelTestGroup.class));
+        parallelTestGroups.forEach(parallelTestGroup -> logInfo("--- " + parallelTestGroup.getName() + " ---"));
         parallelTestGroups.forEach(parallelTestGroup ->
                 configurer.configureParallelTestGroup(
                     parallelTestGroup,
                     parallelTestGroup.getGroups().stream()
                             .flatMap(group -> testsGroupedByType.get(group).stream())
                             .collect(Collectors.toList())));
+
+        logInfo("--- done traversing parallel test group ---");
     }
 
     public PodAllocator createPodAllocator() {

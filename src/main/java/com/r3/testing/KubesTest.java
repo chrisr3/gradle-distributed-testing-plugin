@@ -18,6 +18,9 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserCodeException;
 import org.gradle.api.tasks.TaskAction;
 import org.jetbrains.annotations.NotNull;
+import org.junit.platform.launcher.TestPlan;
+import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
+import org.junit.platform.launcher.core.LauncherFactory;
 
 import java.io.*;
 import java.math.BigInteger;
@@ -29,6 +32,10 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static com.r3.testing.TestPlanUtils.getTestClasses;
+import static com.r3.testing.TestPlanUtils.getTestMethods;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
 
 public class KubesTest extends DefaultTask {
 
@@ -394,6 +401,21 @@ public class KubesTest extends DefaultTask {
         stdOutIs.connect(stdOutOs);
 
         String[] buildCommand = getBuildCommand(numberOfPods, podIdx, podName);
+
+        getProject().getLogger().quiet("--- kubesTest ---");
+        TestPlan testPlan = LauncherFactory.create().discover(
+                LauncherDiscoveryRequestBuilder
+                        .request()
+                        // TODO: Devise mechanism for package selection
+                        .selectors(selectPackage("com.r3.testing"))
+                        .build());
+        Set<String> classesResults = new HashSet<>(getTestClasses(testPlan));
+        getProject().getLogger().quiet("" + testPlan.countTestIdentifiers(x -> true));
+        classesResults.forEach(r -> getProject().getLogger().quiet(r));
+        Set<String> methodResults = new HashSet<>(getTestMethods(testPlan));
+        methodResults.forEach(r -> getProject().getLogger().quiet(r));
+        getProject().getLogger().quiet("--- end kubesTest ---");
+
         getProject().getLogger().quiet("About to execute " + Arrays.stream(buildCommand).reduce("", (s, s2) -> s + " " + s2) + " on pod " + podName);
         client.pods().inNamespace(namespace).withName(podName)
                 .inContainer(podName)
