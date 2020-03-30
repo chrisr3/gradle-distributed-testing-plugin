@@ -126,7 +126,7 @@ wrapper {
     distributionType = Wrapper.DistributionType.ALL
 }
 
-ext.generalPurpose = new Yaml().loadAs(new File("generalPurpose.yml").newInputStream(), InfrastructureProfile.class)
+ext.generalPurpose = new Yaml().loadAs(new URL("https://raw.githubusercontent.com/corda/infrastructure-profiles/master/gradle-distributed-testing-plugin-profiles/generalPurpose.yml").newInputStream(), InfrastructureProfile.class)
 
 task allParallelUnitTest(type: ParallelTestGroup) {
     podLogLevel PodLogLevel.INFO
