@@ -49,6 +49,7 @@ public class ListTests extends DefaultTask implements TestLister {
     void discoverTests() {
         System.out.println("--- discoverTests ---");
         System.out.println("--- scanClassPath : " + scanClassPath + "---");
+        System.out.println("--- scanClassPath : " + scanClassPath.getAsPath() + "---");
         // TODO: Devise mechanism for package selection
         TestPlan testPlan = LauncherFactory.create().discover(
                 LauncherDiscoveryRequestBuilder.request().selectors(selectPackage("com")).build());
