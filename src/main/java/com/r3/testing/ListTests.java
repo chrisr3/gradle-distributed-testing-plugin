@@ -11,7 +11,6 @@ import org.junit.platform.launcher.core.LauncherFactory;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static com.r3.testing.TestPlanUtils.getTestClasses;
 import static com.r3.testing.TestPlanUtils.getTestMethods;
@@ -49,6 +48,7 @@ public class ListTests extends DefaultTask implements TestLister {
     @TaskAction
     void discoverTests() {
         System.out.println("--- discoverTests ---");
+        System.out.println("--- scanClassPath : " + scanClassPath + "---");
         // TODO: Devise mechanism for package selection
         TestPlan testPlan = LauncherFactory.create().discover(
                 LauncherDiscoveryRequestBuilder.request().selectors(selectPackage("com")).build());

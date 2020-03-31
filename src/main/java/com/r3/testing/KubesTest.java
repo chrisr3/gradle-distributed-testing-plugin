@@ -90,7 +90,7 @@ public class KubesTest extends DefaultTask {
         String random = rnd64Base36(new Random());
 
         // Tear down any orphaned dbs from previous test run
-        //tearDownOrphanedAzureSQLDbs();
+        tearDownOrphanedAzureSQLDbs();
 
         try (KubernetesClient client = getKubernetesClient()) {
             client.pods().inNamespace(NAMESPACE).list().getItems().forEach(podToDelete -> {
@@ -401,21 +401,6 @@ public class KubesTest extends DefaultTask {
         stdOutIs.connect(stdOutOs);
 
         String[] buildCommand = getBuildCommand(numberOfPods, podIdx, podName);
-
-        getProject().getLogger().quiet("--- kubesTest ---");
-        TestPlan testPlan = LauncherFactory.create().discover(
-                LauncherDiscoveryRequestBuilder
-                        .request()
-                        // TODO: Devise mechanism for package selection
-                        .selectors(selectPackage("com.r3.testing"))
-                        .build());
-        Set<String> classesResults = new HashSet<>(getTestClasses(testPlan));
-        getProject().getLogger().quiet("" + testPlan.countTestIdentifiers(x -> true));
-        classesResults.forEach(r -> getProject().getLogger().quiet(r));
-        Set<String> methodResults = new HashSet<>(getTestMethods(testPlan));
-        methodResults.forEach(r -> getProject().getLogger().quiet(r));
-        getProject().getLogger().quiet("--- end kubesTest ---");
-
         getProject().getLogger().quiet("About to execute " + Arrays.stream(buildCommand).reduce("", (s, s2) -> s + " " + s2) + " on pod " + podName);
         client.pods().inNamespace(namespace).withName(podName)
                 .inContainer(podName)

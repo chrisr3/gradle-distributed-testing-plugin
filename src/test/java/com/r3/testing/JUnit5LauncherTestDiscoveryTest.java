@@ -19,7 +19,7 @@ import static com.r3.testing.TestPlanUtils.getTestMethods;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
 
-public class JUnit5LauncherTest {
+public class JUnit5LauncherTestDiscoveryTest {
 
     private static TestPlan testPlan;
 

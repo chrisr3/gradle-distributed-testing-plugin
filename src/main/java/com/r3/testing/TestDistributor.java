@@ -77,10 +77,10 @@ public final class TestDistributor {
             listTask.setGroup(DistributedTesting.GRADLE_GROUP);
             //the convention is that a testing task is backed by a sourceSet with the same name
             listTask.dependsOn(subProject.getClassesTaskFor(task));
-//            listTask.doFirst(task1 -> {
+            listTask.doFirst(task1 -> {
                 //we want to set the test scanning classpath to only the output of the sourceSet - this prevents dependencies polluting the list
-//                ((ListTests) task1).scanClassPath = !task.getTestClassesDirs().isEmpty() ? task.getTestClassesDirs() : null;
-//            });
+                ((ListTests) task1).scanClassPath = !task.getTestClassesDirs().isEmpty() ? task.getTestClassesDirs() : null;
+            });
         });
 
         //convenience task to utilize the output of the test listing task to display to local console, useful for debugging missing tests
