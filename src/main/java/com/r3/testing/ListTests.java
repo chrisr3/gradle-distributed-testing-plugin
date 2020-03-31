@@ -52,6 +52,7 @@ public class ListTests extends DefaultTask implements TestLister {
         System.out.println("--- discoverTests ---");
         System.out.println("--- scanClassPath : " + scanClassPath + "---");
         System.out.println("--- scanClassPath : " + scanClassPath.getAsPath() + "---");
+        scanClassPath.getFiles().forEach(file -> System.out.println(file.getAbsolutePath()));
         // TODO: Devise mechanism for package selection
         Set<Path> classpathRoots = new HashSet<>();
         classpathRoots.add(Paths.get(scanClassPath.getAsPath()));
