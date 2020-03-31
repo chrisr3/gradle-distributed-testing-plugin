@@ -13,6 +13,7 @@ import java.math.BigInteger;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.r3.testing.TestPlanUtils.getTestClasses;
 import static com.r3.testing.TestPlanUtils.getTestMethods;
@@ -56,8 +57,9 @@ public class ListTests extends DefaultTask implements TestLister {
         scanClassPath.getAsFileTree().getFiles().forEach(System.out::println);
         System.out.println("***");
         // TODO: Devise mechanism for package selection
-        Set<Path> classpathRoots = new HashSet<>();
-        classpathRoots.add(Paths.get(scanClassPath.getAsPath()));
+        System.out.println("--- getFiles ---");
+        scanClassPath.getFiles().forEach(System.out::println);
+        Set<Path> classpathRoots = scanClassPath.getFiles().stream().map(f -> Paths.get(f.getAbsolutePath())).collect(Collectors.toSet());
         TestPlan testPlan = LauncherFactory.create().discover(
                 LauncherDiscoveryRequestBuilder.request()
                         .selectors(
