@@ -59,12 +59,13 @@ public class ListTests extends DefaultTask implements TestLister {
         // TODO: Devise mechanism for package selection
         System.out.println("--- getFiles ---");
         scanClassPath.getFiles().forEach(System.out::println);
-        Set<Path> classpathRoots = scanClassPath.getFiles().stream().map(f -> Paths.get(f.getAbsolutePath())).collect(Collectors.toSet());
+        Set<Path> classpathRoots = scanClassPath.getFiles()
+                .stream().map(f -> Paths.get(f.toURI())).collect(Collectors.toSet());
         TestPlan testPlan = LauncherFactory.create().discover(
                 LauncherDiscoveryRequestBuilder.request()
-                        .selectors(
-                        selectPackage("com")
-                )
+//                        .selectors(
+//                        selectPackage("com")
+//                )
                         .selectors(
                         selectClasspathRoots(classpathRoots)
                 )
