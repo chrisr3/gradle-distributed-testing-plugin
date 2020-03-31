@@ -10,10 +10,8 @@ import org.junit.platform.launcher.core.LauncherFactory;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.r3.testing.TestPlanUtils.getTestClasses;
 import static com.r3.testing.TestPlanUtils.getTestMethods;
@@ -51,32 +49,16 @@ public class ListTests extends DefaultTask implements TestLister {
     @TaskAction
     void discoverTests() {
         System.out.println("--- discoverTests ---");
+        // TODO: Devise mechanism for package selection
         TestPlan testPlan = LauncherFactory.create().discover(
-                LauncherDiscoveryRequestBuilder
-                        .request()
-                        // TODO: Devise mechanism for package selection
-                        .selectors(selectPackage("com"))
-                        .build());
-        Set<String> results;
+                LauncherDiscoveryRequestBuilder.request().selectors(selectPackage("com")).build());
 
-        Set<String> methodResults = new HashSet<>(getTestMethods(testPlan));
-        methodResults.forEach(System.out::println);
         switch (distribution) {
             case METHOD:
-                results = getTestMethods(testPlan).stream().collect(Collectors.toSet());
-                this.allTests = results.stream().collect(Collectors.toList());
-                System.out.println(testPlan.countTestIdentifiers(x -> true));
-                System.out.println("----M");
-                results.forEach(System.out::println);
-                System.out.println("--- end discoverTests methods ---");
+                this.allTests = new ArrayList<>(getTestMethods(testPlan));
                 break;
             case CLASS:
-                results = getTestClasses(testPlan).stream().collect(Collectors.toSet());
-                this.allTests = results.stream().collect(Collectors.toList());
-                System.out.println(testPlan.countTestIdentifiers(x -> true));
-                System.out.println("----C");
-                results.forEach(System.out::println);
-                System.out.println("--- end discoverTest classes ---");
+                this.allTests = new ArrayList<>(getTestClasses(testPlan));
                 break;
         }
     }

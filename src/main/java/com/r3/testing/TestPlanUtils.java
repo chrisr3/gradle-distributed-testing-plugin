@@ -11,13 +11,22 @@ import static org.apache.commons.lang3.StringUtils.substringBetween;
 
 public class TestPlanUtils {
 
+    /**
+     * Returns set of test classes in TestPlan
+     * @param testPlan
+     * @return
+     */
     public static Set<String> getTestClasses(TestPlan testPlan) {
         return convertToSet(testPlan).stream()
                 .filter(ti -> !ti.contains("()"))
-//                .map(ti -> ti += "*")
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Returns set of test methods in TestPlan
+     * @param testPlan
+     * @return
+     */
     public static Set<String> getTestMethods(TestPlan testPlan) {
         return convertToSet(testPlan).stream()
                 .filter(ti -> ti.contains("()"))
@@ -25,7 +34,10 @@ public class TestPlanUtils {
                 .collect(Collectors.toSet());
     }
 
-    public static Set<String> convertToSet(TestPlan testPlan) {
+    /**
+     * Removes root nodes (test engines) from TestPlan and returns all other nodes i.e. test classes and methods
+     */
+    private static Set<String> convertToSet(TestPlan testPlan) {
         Set<String> tests = new HashSet<>();
         for (TestIdentifier root: testPlan.getRoots()) {
             for (TestIdentifier descendant: testPlan.getDescendants(root)) {
@@ -39,6 +51,9 @@ public class TestPlanUtils {
         return tests;
     }
 
+    /**
+     * Helper method to convert JUnit5 Launcher API TestIdentifier to appropriate class / method name string
+     */
     private static String convertTestIdentifierToString(TestIdentifier testIdentifier) {
         String uniqueId = testIdentifier.getUniqueId();
         if (uniqueId.contains("()")) {

@@ -17,7 +17,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.r3.testing.TestPlanUtils.getTestClasses;
@@ -47,18 +50,10 @@ public final class TestDistributor {
     }
 
     private void distribute(DistributedTestingSubProject subProject, List<Task> requestedTasks, Test test) {
-        logInfo("--- debug ---");
+        logInfo("--- distribute ---");
+        //TODO: package discovery
         TestPlan testPlan = LauncherFactory.create().discover(
-                LauncherDiscoveryRequestBuilder
-                        .request()
-                        .selectors(selectPackage("com"))
-                        .build());
-        Set<String> classesResults = new HashSet<>(getTestClasses(testPlan));
-        System.out.println(testPlan.countTestIdentifiers(x -> true));
-        classesResults.forEach(System.out::println);
-        Set<String> methodResults = new HashSet<>(getTestMethods(testPlan));
-        methodResults.forEach(System.out::println);
-        logInfo("--- end debug ---");
+                LauncherDiscoveryRequestBuilder.request().selectors(selectPackage("com")).build());
         logInfo("Evaluating " + test.getPath());
         if (requestedTasks.contains(test) && !test.hasProperty("ignoreForDistribution")) {
             logInfo("Modifying " + test.getPath());
@@ -82,10 +77,10 @@ public final class TestDistributor {
             listTask.setGroup(DistributedTesting.GRADLE_GROUP);
             //the convention is that a testing task is backed by a sourceSet with the same name
             listTask.dependsOn(subProject.getClassesTaskFor(task));
-            listTask.doFirst(task1 -> {
+//            listTask.doFirst(task1 -> {
                 //we want to set the test scanning classpath to only the output of the sourceSet - this prevents dependencies polluting the list
-                ((ListTests) task1).scanClassPath = !task.getTestClassesDirs().isEmpty() ? task.getTestClassesDirs() : null;
-            });
+//                ((ListTests) task1).scanClassPath = !task.getTestClassesDirs().isEmpty() ? task.getTestClassesDirs() : null;
+//            });
         });
 
         //convenience task to utilize the output of the test listing task to display to local console, useful for debugging missing tests
