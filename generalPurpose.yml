@@ -1,5 +1,0 @@
-numberOfShards: 2
-streamOutput: true
-coresPerFork: 3
-memoryInGbPerFork: 12
-nodeTaints: ["small"]
