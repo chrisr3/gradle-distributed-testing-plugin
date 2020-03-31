@@ -9,12 +9,14 @@ import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 
 import static com.r3.testing.TestPlanUtils.getTestClasses;
 import static com.r3.testing.TestPlanUtils.getTestMethods;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClasspathRoots;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
 
 interface TestLister {
@@ -51,8 +53,16 @@ public class ListTests extends DefaultTask implements TestLister {
         System.out.println("--- scanClassPath : " + scanClassPath + "---");
         System.out.println("--- scanClassPath : " + scanClassPath.getAsPath() + "---");
         // TODO: Devise mechanism for package selection
+        Set<Path> classpathRoots = new HashSet<>();
+        classpathRoots.add(Paths.get(scanClassPath.getAsPath()));
         TestPlan testPlan = LauncherFactory.create().discover(
-                LauncherDiscoveryRequestBuilder.request().selectors(selectPackage("com")).build());
+                LauncherDiscoveryRequestBuilder.request()
+//                        .selectors(
+//                        selectPackage("com")
+//                ).
+                        .selectors(
+                        selectClasspathRoots(classpathRoots)
+                ).build());
 
         switch (distribution) {
             case METHOD:
