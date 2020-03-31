@@ -8,6 +8,7 @@ import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 
+import java.io.File;
 import java.math.BigInteger;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -52,7 +53,13 @@ public class ListTests extends DefaultTask implements TestLister {
         System.out.println("--- discoverTests ---");
         System.out.println("--- scanClassPath : " + scanClassPath + "---");
         System.out.println("--- scanClassPath : " + scanClassPath.getAsPath() + "---");
-        scanClassPath.getFiles().forEach(file -> System.out.println(file.getAbsolutePath()));
+        for (File f : scanClassPath.getFiles()) {
+            System.out.println(f.getAbsolutePath());
+            if (f.isDirectory()) {
+                f.list();
+            }
+        }
+//        scanClassPath.getFiles().forEach(file -> System.out.println(file.getAbsolutePath()));
         // TODO: Devise mechanism for package selection
         Set<Path> classpathRoots = new HashSet<>();
         classpathRoots.add(Paths.get(scanClassPath.getAsPath()));
@@ -63,7 +70,8 @@ public class ListTests extends DefaultTask implements TestLister {
                 )
                         .selectors(
                         selectClasspathRoots(classpathRoots)
-                ).build());
+                )
+                        .build());
 
         switch (distribution) {
             case METHOD:
