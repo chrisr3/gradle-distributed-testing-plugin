@@ -57,9 +57,9 @@ public class ListTests extends DefaultTask implements TestLister {
         classpathRoots.add(Paths.get(scanClassPath.getAsPath()));
         TestPlan testPlan = LauncherFactory.create().discover(
                 LauncherDiscoveryRequestBuilder.request()
-//                        .selectors(
-//                        selectPackage("com")
-//                ).
+                        .selectors(
+                        selectPackage("com")
+                )
                         .selectors(
                         selectClasspathRoots(classpathRoots)
                 ).build());
