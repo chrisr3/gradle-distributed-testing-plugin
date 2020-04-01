@@ -3,7 +3,6 @@ package com.r3.testing;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.tasks.TaskAction;
-import org.junit.jupiter.api.Test;
 import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
@@ -18,7 +17,6 @@ import java.util.stream.Collectors;
 
 import static com.r3.testing.TestPlanUtils.getTestClasses;
 import static com.r3.testing.TestPlanUtils.getTestMethods;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClasspathRoots;
 
 interface TestLister {
@@ -64,10 +62,5 @@ public class ListTests extends DefaultTask implements TestLister {
                 this.allTests = new ArrayList<>(getTestClasses(testPlan));
                 break;
         }
-    }
-
-    @Test
-    public void someTest() {
-        assertTrue(true);
     }
 }
