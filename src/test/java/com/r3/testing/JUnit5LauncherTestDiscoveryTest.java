@@ -67,6 +67,7 @@ public class JUnit5LauncherTestDiscoveryTest {
     }
 
     private Stream<ClassInfo> getClassGraphStreamForAnnotation(String annotation) {
+
         return new ClassGraph()
                 .enableClassInfo()
                 .enableMethodInfo()

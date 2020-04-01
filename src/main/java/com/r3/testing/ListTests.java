@@ -8,18 +8,18 @@ import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 
-import java.io.File;
 import java.math.BigInteger;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.r3.testing.TestPlanUtils.getTestClasses;
 import static com.r3.testing.TestPlanUtils.getTestMethods;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClasspathRoots;
-import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage;
 
 interface TestLister {
     List<String> getAllTestsDiscovered();
@@ -51,25 +51,10 @@ public class ListTests extends DefaultTask implements TestLister {
 
     @TaskAction
     void discoverTests() {
-        System.out.println("--- discoverTests ---");
-        System.out.println("--- scanClassPath : " + scanClassPath + "---");
-        System.out.println("--- scanClassPath : " + scanClassPath.getAsPath() + "---");
-        scanClassPath.getAsFileTree().getFiles().forEach(System.out::println);
-        System.out.println("***");
-        // TODO: Devise mechanism for package selection
-        System.out.println("--- getFiles ---");
-        scanClassPath.getFiles().forEach(System.out::println);
         Set<Path> classpathRoots = scanClassPath.getFiles()
-                .stream().map(f -> Paths.get(f.toURI())).collect(Collectors.toSet());
+                .stream().map(file -> Paths.get(file.toURI())).collect(Collectors.toSet());
         TestPlan testPlan = LauncherFactory.create().discover(
-                LauncherDiscoveryRequestBuilder.request()
-//                        .selectors(
-//                        selectPackage("com")
-//                )
-                        .selectors(
-                        selectClasspathRoots(classpathRoots)
-                )
-                        .build());
+                LauncherDiscoveryRequestBuilder.request().selectors(selectClasspathRoots(classpathRoots)).build());
 
         switch (distribution) {
             case METHOD:

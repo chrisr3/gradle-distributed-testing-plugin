@@ -50,10 +50,6 @@ public final class TestDistributor {
     }
 
     private void distribute(DistributedTestingSubProject subProject, List<Task> requestedTasks, Test test) {
-        logInfo("--- distribute ---");
-        //TODO: package discovery
-        TestPlan testPlan = LauncherFactory.create().discover(
-                LauncherDiscoveryRequestBuilder.request().selectors(selectPackage("com")).build());
         logInfo("Evaluating " + test.getPath());
         if (requestedTasks.contains(test) && !test.hasProperty("ignoreForDistribution")) {
             logInfo("Modifying " + test.getPath());
