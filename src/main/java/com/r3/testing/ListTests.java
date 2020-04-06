@@ -59,6 +59,7 @@ public class ListTests extends DefaultTask implements TestLister {
         System.out.println("--- discover tests with JUnit5 launcher ---");
         Set<Path> classpathRoots = scanClassPath.getFiles()
                 .stream().map(file -> Paths.get(file.toURI())).collect(Collectors.toSet());
+        System.out.println("classpath roots: " + classpathRoots);
         TestPlan testPlan = LauncherFactory.create().discover(
                 LauncherDiscoveryRequestBuilder.request().selectors(
                         selectClasspathRoots(classpathRoots)
