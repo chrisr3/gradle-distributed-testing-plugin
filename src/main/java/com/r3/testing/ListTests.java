@@ -55,18 +55,7 @@ public class ListTests extends DefaultTask implements TestLister {
         System.out.println("--- scanclasspath ---");
         System.out.println(scanClassPath);
         System.out.println("--- print files in scanclasspath ---");
-        scanClassPath.getAsFileTree().getFiles().forEach(f -> {
-            System.out.println(f);
-            List<String> content = null;
-            try {
-                content = Files.readAllLines(f.toPath());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            if (content != null) {
-                content.forEach(System.out::println);
-            }
-        });
+        scanClassPath.getAsFileTree().getFiles().forEach(System.out::println);
         System.out.println("--- discover tests with JUnit5 launcher ---");
         Set<Path> classpathRoots = scanClassPath.getFiles()
                 .stream().map(file -> Paths.get(file.toURI())).collect(Collectors.toSet());
