@@ -1,6 +1,6 @@
 # __Distributed testing plugin__
 
-This plugin enables users to run their test sets in a distributed fashion minimal configuration, 
+This plugin enables users to run their test sets in a distributed fashion with minimal configuration, 
 using established tools like Docker and Kubernetes, all within the established Corda Jenkins CI 
 Pipeline.
 
@@ -57,7 +57,7 @@ nodeTaints: ["small"]
 - Number of shards defines how many pods your tests will run across. 
 - Stream output enables pod log streaming to the main log file. Be warned as the log might become 
 unreadable depending on how many pods stream their output. 
-- Cores per fork is the number of cpus allocated to the each pod. 
+- Cores per fork is the number of cpus allocated to each pod. 
 - Same for memory. 
 - Node taints is a special feature that allows you to specify a particular resource pool on the cloud 
 from which these pods will be created. Do consult with the Infrastructure team in case you have 
