@@ -24,7 +24,7 @@ pipeline {
                             "-Ddocker.work.dir=\"/tmp/\${EXECUTOR_NUMBER}\" " +
                             "-Ddocker.build.tag=\"\${DOCKER_TAG_TO_USE}\" " +
                             "-Ddocker.buildbase.tag=11latest " +
-                            "-Ddocker.dockerfile=Dockerfile" +
+                            "-Ddocker.dockerfile=DockerfileJDK11" +
                             " clean pushBuildImage --stacktrace"
                 }
                 sh "kubectl auth can-i get pods"
