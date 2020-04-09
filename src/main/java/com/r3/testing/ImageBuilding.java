@@ -44,7 +44,7 @@ public class ImageBuilding implements Plugin<Project> {
                 dockerBuildImage -> {
                     dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
                     dockerBuildImage.getInputDir().set(new File("."));
-                    dockerBuildImage.getDockerFile().set(new File(new File("testing"), "Dockerfile"));
+                    dockerBuildImage.getDockerFile().set(new File(new File("testing"), System.getProperty("docker.dockerfile", "Dockerfile")));
                 });
 
         this.buildTask = buildDockerImageForSource;
