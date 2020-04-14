@@ -4,7 +4,7 @@ import static com.r3.build.BuildControl.killAllExistingBuildsForJob
 killAllExistingBuildsForJob(env.JOB_NAME, env.BUILD_NUMBER.toInteger())
 
 pipeline {
-    agent { label 'k8s' }
+    agent { label 'local-k8s' }
     options { timestamps() }
 
     environment {
@@ -22,8 +22,10 @@ pipeline {
                             "-Dkubenetize=true " +
                             "-Ddocker.push.password=\"\${DOCKER_PUSH_PWD}\" " +
                             "-Ddocker.work.dir=\"/tmp/\${EXECUTOR_NUMBER}\" " +
-                            "-Ddocker.build.tag=\"\${DOCKER_TAG_TO_USE}\"" +
-                            " clean pushBuildImage preAllocateForAllParallelUnitTest --stacktrace"
+                            "-Ddocker.build.tag=\"\${DOCKER_TAG_TO_USE}\" " +
+                            "-Ddocker.buildbase.tag=11latest " +
+                            "-Ddocker.dockerfile=DockerfileJDK11" +
+                            " clean pushBuildImage --stacktrace"
                 }
                 sh "kubectl auth can-i get pods"
             }
@@ -38,7 +40,7 @@ pipeline {
                         "-Dartifactory.password=\"\${ARTIFACTORY_CREDENTIALS_PSW}\" " +
                         "-Dgit.branch=\"\${GIT_BRANCH}\" " +
                         "-Dgit.target.branch=\"\${CHANGE_TARGET}\" " +
-                        " deAllocateForAllParallelUnitTest allParallelUnitTest --stacktrace"
+                        " allParallelUnitTest --stacktrace"
             }
         }
     }

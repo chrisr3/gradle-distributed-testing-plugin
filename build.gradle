@@ -133,5 +133,11 @@ task allParallelUnitTest(type: ParallelTestGroup) {
     nodeTaints "small"
 }
 
+task integrationTestClasses {
+    doFirst {
+        logger.lifecycle("placeholder for integration test compilation to allow plugin testing")
+    }
+}
+
 apply plugin: ImageBuilding
 apply plugin: DistributedTesting
