@@ -460,7 +460,7 @@ public class KubesTest extends DefaultTask {
                 .withName("DRIVER_WEB_MEMORY")
                 .withValue("1024m")
                 .endEnv()
-                .withName(podName + "-pg")
+                .withName(podName + getDBContainerSuffix())
                 .withNewResources()
                 .addToRequests("cpu", new Quantity("1"))
                 .addToRequests("memory", new Quantity("1Gi"))
@@ -708,6 +708,16 @@ public class KubesTest extends DefaultTask {
 
         public void delete() {
             Retry.fixedWithDelay(10, 1000, getProject().getLogger()).call(() -> backingResource.delete());
+        }
+    }
+
+    private String getDBContainerSuffix() {
+        if (sidecarImage.contains("postgres")) {
+            return "-pg";
+        } else if (sidecarImage.contains("mssql")) {
+            return "-mssql";
+        } else {
+            throw new IllegalStateException("Unexpected value: " + sidecarImage);
         }
     }
 }
