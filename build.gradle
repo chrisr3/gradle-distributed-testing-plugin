@@ -1,8 +1,10 @@
 import com.r3.testing.DistributeTestsBy
+import com.r3.testing.InfrastructureProfile
 import com.r3.testing.ParallelTestGroup
 import com.r3.testing.PodLogLevel
 import com.r3.testing.ImageBuilding
 import com.r3.testing.DistributedTesting
+import org.yaml.snakeyaml.Yaml
 
 plugins {
     id 'com.gradle.plugin-publish' version '0.10.1' apply false
@@ -17,7 +19,7 @@ apply plugin: 'com.gradle.plugin-publish'
 apply plugin: "com.bmuschko.docker-remote-api"
 
 group = 'com.r3.testing'
-version = '1.2-LOCAL-K8S-SHARED-CACHE-SNAPSHOT'
+version = '1.3-SNAPSHOT'
 
 ext {
     vcsUrl = 'https://github.com/corda/gradle-distributed-testing-plugin'
@@ -50,6 +52,7 @@ dependencies {
     implementation 'org.apache.commons:commons-csv:1.1'
     implementation group: 'org.jetbrains', name: 'annotations', version: '13.0'
     implementation 'com.microsoft.azure:azure:1.3.0'
+    implementation 'org.yaml:snakeyaml:1.23'
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.5.2"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.5.2"
 }
@@ -122,15 +125,15 @@ wrapper {
     distributionType = Wrapper.DistributionType.ALL
 }
 
+ext.generalPurpose = new Yaml().loadAs(new URL(
+        "https://raw.githubusercontent.com/corda/infrastructure-profiles/master/gradle-distributed-testing-plugin-profiles/generalPurpose.yml")
+        .newInputStream(), InfrastructureProfile.class)
+
 task allParallelUnitTest(type: ParallelTestGroup) {
     podLogLevel PodLogLevel.INFO
     testGroups "test"
-    numberOfShards 2
-    streamOutput true
-    coresPerFork 3
-    memoryInGbPerFork 12
+    profile generalPurpose
     distribute DistributeTestsBy.CLASS
-    nodeTaints "small"
 }
 
 task integrationTestClasses {

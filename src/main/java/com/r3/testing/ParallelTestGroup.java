@@ -8,16 +8,12 @@ import java.util.List;
 
 public class ParallelTestGroup extends DefaultTask {
 
-    private DistributeTestsBy distribution = DistributeTestsBy.METHOD;
-    private List<String> groups = new ArrayList<>();
-    private int shardCount = 20;
-    private int coresToUse = 4;
-    private int gbOfMemory = 4;
-    private boolean printToStdOut = true;
     private PodLogLevel logLevel = PodLogLevel.INFO;
+    private List<String> groups = new ArrayList<>();
+    private InfrastructureProfile profile;
+    private DistributeTestsBy distribution = DistributeTestsBy.METHOD;
     private String sidecarImage;
     private List<String> additionalArgs = new ArrayList<>();
-    private List<String> taints = new ArrayList<>();
 
     public DistributeTestsBy getDistribution() {
         return distribution;
@@ -28,19 +24,19 @@ public class ParallelTestGroup extends DefaultTask {
     }
 
     public int getShardCount() {
-        return shardCount;
+        return profile.getNumberOfShards();
     }
 
     public int getCoresToUse() {
-        return coresToUse;
+        return profile.getCoresPerFork();
     }
 
     public int getGbOfMemory() {
-        return gbOfMemory;
+        return profile.getMemoryInGbPerFork();
     }
 
     public boolean getPrintToStdOut() {
-        return printToStdOut;
+        return profile.isStreamOutput();
     }
 
     public PodLogLevel getLogLevel() {
@@ -56,11 +52,11 @@ public class ParallelTestGroup extends DefaultTask {
     }
 
     public List<String> getNodeTaints(){
-        return new ArrayList<>(taints);
+        return new ArrayList<>(profile.getNodeTaints());
     }
 
-    public void numberOfShards(int shards) {
-        this.shardCount = shards;
+    public void profile(InfrastructureProfile profile) {
+        this.profile = profile;
     }
 
     public void podLogLevel(PodLogLevel level) {
@@ -69,19 +65,6 @@ public class ParallelTestGroup extends DefaultTask {
 
     public void distribute(DistributeTestsBy dist) {
         this.distribution = dist;
-    }
-
-    public void coresPerFork(int cores) {
-        this.coresToUse = cores;
-    }
-
-    public void memoryInGbPerFork(int gb) {
-        this.gbOfMemory = gb;
-    }
-
-    //when this is false, only containers will "failed" exit codes will be printed to stdout
-    public void streamOutput(boolean print) {
-        this.printToStdOut = print;
     }
 
     public void testGroups(String... group) {
@@ -102,14 +85,6 @@ public class ParallelTestGroup extends DefaultTask {
 
     private void additionalArgs(List<String> additionalArgs) {
         this.additionalArgs.addAll(additionalArgs);
-    }
-
-    public void nodeTaints(String... additionalArgs) {
-        nodeTaints(Arrays.asList(additionalArgs));
-    }
-
-    private void nodeTaints(List<String> additionalArgs) {
-        this.taints.addAll(additionalArgs);
     }
 
 }
