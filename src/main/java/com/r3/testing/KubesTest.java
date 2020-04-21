@@ -412,7 +412,7 @@ public class KubesTest extends DefaultTask {
             setUpAzureSQLDbSchemaForPod(podName);
             return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
         } else if (withDb) {
-            // Other DBs
+            // Postgres, MSSQL
             return buildPodRequestWithWorkerNodeAndDbContainer(podName, pvc, podIdx);
         } else {
             // No DB / H2
@@ -435,7 +435,8 @@ public class KubesTest extends DefaultTask {
     }
 
     private Pod buildPodRequestWithWorkerNodeAndDbContainer(String podName, PersistentVolumeClaim pvc, int podIdx) {
-        return getBasePodDefinition(podName, pvc, podIdx)
+
+        PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>> baseWorkerAndDBPodDefinition = getBasePodDefinition(podName, pvc, podIdx)
                 .addToRequests("cpu", new Quantity(Integer.valueOf(numberOfCoresPerFork - 1).toString()))
                 .addToRequests("memory", new Quantity(Integer.valueOf(memoryGbPerFork - 1).toString() + "Gi"))
                 .endResources()
@@ -445,32 +446,48 @@ public class KubesTest extends DefaultTask {
                 .addNewContainer()
                 .withImage(sidecarImage)
                 .addNewEnv()
-                .withName("POSTGRES_HOST_AUTH_METHOD") // required for postgres docker image
-                .withValue("trust")
-                .endEnv()
-                .addNewEnv()
-                .withName("ACCEPT_EULA") // required for mssql docker image
-                .withValue("Y")
-                .endEnv()
-                .addNewEnv()
                 .withName("DRIVER_NODE_MEMORY")
                 .withValue("1024m")
                 .endEnv()
                 .addNewEnv()
                 .withName("DRIVER_WEB_MEMORY")
                 .withValue("1024m")
-                .endEnv()
-                .withName(podName + getDBContainerSuffix())
+                .endEnv();
+
+        baseWorkerAndDBPodDefinition = addEnvVarsToPodDefinition(baseWorkerAndDBPodDefinition);
+
+        return baseWorkerAndDBPodDefinition
+                .withName(podName + getDBFlavour().getDBContainerSuffix())
                 .withNewResources()
                 .addToRequests("cpu", new Quantity("1"))
                 .addToRequests("memory", new Quantity("1Gi"))
                 .endResources()
                 .endContainer()
-
                 .addNewImagePullSecret(REGISTRY_CREDENTIALS_SECRET_NAME)
                 .withRestartPolicy("Never")
                 .endSpec()
                 .build();
+    }
+
+    private PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>> addEnvVarsToPodDefinition(PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>> basePodDefinition) {
+
+        Map<String, String> envVars = getDBFlavour().getEnvVars(additionalArgs);
+
+        for (Map.Entry<String, String> entry : envVars.entrySet()) {
+            if (entry.getValue() != null) {
+                basePodDefinition = basePodDefinition
+                        .addNewEnv()
+                        .withName(entry.getKey())
+                        .withValue(entry.getValue())
+                        .endEnv();
+            } else {
+                basePodDefinition = basePodDefinition
+                        .addNewEnv()
+                        .withName(entry.getKey())
+                        .endEnv();
+            }
+        }
+        return basePodDefinition;
     }
 
     private void setUpAzureSQLDbSchemaForPod(String podName) {
@@ -711,13 +728,12 @@ public class KubesTest extends DefaultTask {
         }
     }
 
-    private String getDBContainerSuffix() {
-        if (sidecarImage.contains("postgres")) {
-            return "-pg";
-        } else if (sidecarImage.contains("mssql")) {
-            return "-mssql";
-        } else {
-            throw new IllegalStateException("Unexpected value: " + sidecarImage);
+    private SupportedDatabase getDBFlavour() {
+        for (SupportedDatabase db : SupportedDatabase.values()) {
+            if (sidecarImage.contains(db.asLowerCase())) {
+                return db;
+            }
         }
+        throw new IllegalArgumentException("Unsupported database: " + sidecarImage);
     }
 }
