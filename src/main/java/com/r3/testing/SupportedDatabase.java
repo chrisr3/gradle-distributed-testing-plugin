@@ -1,5 +1,6 @@
 package com.r3.testing;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,21 @@ public enum SupportedDatabase {
                     put("SA_PASSWORD", getMSSQLDBPassword(additionalArgs));
                 }
             };
+        }
+    }, AZURE {
+        @Override
+        public String asLowerCase() {
+            return AZURE.toString().toLowerCase();
+        }
+
+        @Override
+        public String getDBContainerSuffix() {
+            throw new IllegalStateException("DB container not required for AzureSQL");
+        }
+
+        @Override
+        public Map<String, String> getEnvVars(List<String> additionalArgs) {
+            return Collections.emptyMap();
         }
     };
 

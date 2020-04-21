@@ -64,11 +64,11 @@ public class KubesTest extends DefaultTask {
     DistributeTestsBy distribution = DistributeTestsBy.METHOD;
     PodLogLevel podLogLevel = PodLogLevel.INFO;
 
+    private static final String AZURE_SQL_SERVER_NAME = "asql-int-test";
     private static final String RESOURCE_GROUP = "build-k8s-infrastructure";
     private static final String CLIENT = System.getProperty("azure.client");
     private static final String TENANT = System.getProperty("azure.tenant");
     private static final String KEY = System.getProperty("azure.key");
-    private static final String ASQL_SERVER = "eng-infra-test-db-server-01";
     private static final ApplicationTokenCredentials AZURE_CREDENTIALS = new ApplicationTokenCredentials(
             CLIENT, TENANT, KEY, AzureEnvironment.AZURE
     );
@@ -83,7 +83,7 @@ public class KubesTest extends DefaultTask {
         String random = rnd64Base36(new Random());
 
         // Tear down any orphaned dbs from previous test run
-        //tearDownOrphanedAzureSQLDbs();
+        tearDownOrphanedAzureSQLDBs();
 
         try (KubernetesClient client = getKubernetesClient()) {
             client.pods().inNamespace(NAMESPACE).list().getItems().forEach(podToDelete -> {
@@ -117,11 +117,11 @@ public class KubesTest extends DefaultTask {
         }).collect(Collectors.toList());
 
         // Tear down Azure SQL DBs (if any) from this test run
-        tearDownAzureSQLDbs(stableRunId, random);
+        tearDownAzureSQLDBs(stableRunId, random);
     }
 
-    private void tearDownOrphanedAzureSQLDbs() {
-        if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
+    private void tearDownOrphanedAzureSQLDBs() {
+        if (additionalArgs.stream().anyMatch(arg -> arg.contains(SupportedDatabase.AZURE.asLowerCase()))) {
             // get all of the live pod names
             try (KubernetesClient client = getKubernetesClient()) {
                 List<String> podNames = client.pods().inNamespace(NAMESPACE).list().getItems().stream().map(pod -> pod.getMetadata().getName()).collect(Collectors.toList());
@@ -130,9 +130,15 @@ public class KubesTest extends DefaultTask {
                             .withLogLevel(LogLevel.NONE)
                             .authenticate(AZURE_CREDENTIALS)
                             .withDefaultSubscription().sqlServers()
-                            .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
+                            .getByResourceGroup(RESOURCE_GROUP, AZURE_SQL_SERVER_NAME)
                             .databases().list().stream()
-                            .filter(db -> !db.name().contains("master")).collect(Collectors.toList());
+                            .filter(db -> !db.name().contains("master") || !db.name().contains("corda-db-test") ||
+                                    // assumes max 10 pods suffixed with `-[0-9]`
+                                    podNames.stream()
+                                            .map(podName -> podName.substring(0, podName.length() - 2))
+                                            .collect(Collectors.toSet())
+                                            .stream().anyMatch(podName -> db.name().contains(podName))
+                            ).collect(Collectors.toList());
                     for (SqlDatabase db : sqlDatabases) {
                         try {
                             db.delete();
@@ -141,18 +147,20 @@ public class KubesTest extends DefaultTask {
                         }
                     }
                 } catch (CloudException e) {
-                    getProject().getLogger().lifecycle("CloudException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
+                    getProject().getLogger().lifecycle(
+                            "CloudException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
                     e.printStackTrace();
                 } catch (IOException e) {
-                    getProject().getLogger().lifecycle("IOException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
+                    getProject().getLogger().lifecycle(
+                            "IOException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
                     e.printStackTrace();
                 }
             }
         }
     }
 
-    private void tearDownAzureSQLDbs(String stableRunId, String random) {
-        if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
+    private void tearDownAzureSQLDBs(String stableRunId, String random) {
+        if (additionalArgs.stream().anyMatch(arg -> arg.contains(SupportedDatabase.AZURE.asLowerCase()))) {
             List<String> podNames = IntStream.range(0, numberOfPods).mapToObj(i -> generatePodName(stableRunId, random, i)).collect(Collectors.toList());
             String basePodName = podNames.get(0).substring(0, podNames.get(0).length() - 2);
             try {
@@ -160,7 +168,7 @@ public class KubesTest extends DefaultTask {
                         .withLogLevel(LogLevel.NONE)
                         .authenticate(AZURE_CREDENTIALS)
                         .withDefaultSubscription().sqlServers()
-                        .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
+                        .getByResourceGroup(RESOURCE_GROUP, AZURE_SQL_SERVER_NAME)
                         .databases().list().stream()
                         .filter(db -> db.name().contains(basePodName)).collect(Collectors.toList());
                 for (SqlDatabase db : sqlDatabases) {
@@ -171,10 +179,12 @@ public class KubesTest extends DefaultTask {
                     }
                 }
             } catch (CloudException e) {
-                getProject().getLogger().lifecycle("CloudException thrown when getting Azure client for tearing down Azure SQL databases post-test.");
+                getProject().getLogger().lifecycle(
+                        "CloudException thrown when getting Azure client for tearing down Azure SQL databases post-test.");
                 e.printStackTrace();
             } catch (IOException e) {
-                getProject().getLogger().lifecycle("IOException thrown when getting Azure client for tearing down Azure SQL databases post-test.");
+                getProject().getLogger().lifecycle(
+                        "IOException thrown when getting Azure client for tearing down Azure SQL databases post-test.");
                 e.printStackTrace();
             }
         }
@@ -406,14 +416,14 @@ public class KubesTest extends DefaultTask {
         return waiter;
     }
 
-    private Pod buildPodRequest(String podName, PersistentVolumeClaim pvc, boolean withDb, int podIdx) {
-        if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
+    private Pod buildPodRequest(String podName, PersistentVolumeClaim pvc, boolean withDB, int podIdx) {
+        if (additionalArgs.stream().anyMatch(arg -> arg.contains(SupportedDatabase.AZURE.asLowerCase()))) {
             // Azure SQL
-            setUpAzureSQLDbSchemaForPod(podName);
+            setUpAzureSQLDBSchemaForPod(podName);
             return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
-        } else if (withDb) {
+        } else if (withDB) {
             // Postgres, MSSQL
-            return buildPodRequestWithWorkerNodeAndDbContainer(podName, pvc, podIdx);
+            return buildPodRequestWithWorkerNodeAndDBContainer(podName, pvc, podIdx);
         } else {
             // No DB / H2
             return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
@@ -434,7 +444,7 @@ public class KubesTest extends DefaultTask {
                 .build();
     }
 
-    private Pod buildPodRequestWithWorkerNodeAndDbContainer(String podName, PersistentVolumeClaim pvc, int podIdx) {
+    private Pod buildPodRequestWithWorkerNodeAndDBContainer(String podName, PersistentVolumeClaim pvc, int podIdx) {
 
         PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>> baseWorkerAndDBPodDefinition = getBasePodDefinition(podName, pvc, podIdx)
                 .addToRequests("cpu", new Quantity(Integer.valueOf(numberOfCoresPerFork - 1).toString()))
@@ -490,13 +500,13 @@ public class KubesTest extends DefaultTask {
         return basePodDefinition;
     }
 
-    private void setUpAzureSQLDbSchemaForPod(String podName) {
+    private void setUpAzureSQLDBSchemaForPod(String podName) {
         try {
             Azure.configure()
                     .withLogLevel(LogLevel.NONE)
                     .authenticate(AZURE_CREDENTIALS)
                     .withDefaultSubscription().sqlServers()
-                    .getByResourceGroup(RESOURCE_GROUP, ASQL_SERVER)
+                    .getByResourceGroup(RESOURCE_GROUP, AZURE_SQL_SERVER_NAME)
                     .databases().define(podName + "-db")
                     .withServiceObjective(ServiceObjectiveName.BASIC)
                     .create();
@@ -506,6 +516,10 @@ public class KubesTest extends DefaultTask {
     }
 
     private ContainerFluent.ResourcesNested<PodSpecFluent.ContainersNested<PodFluent.SpecNested<PodBuilder>>> getBasePodDefinition(String podName, PersistentVolumeClaim pvc, int podIdx) {
+
+        // Azure SQL is slow and requires more time or else the pod terminates before the tests complete
+        int podSleepSeconds = additionalArgs.stream().anyMatch(arg -> arg.contains("azure")) ? 7200 : 3600;
+
         return new PodBuilder()
                 .withNewMetadata().withName(podName).endMetadata()
                 .withNewSpec()
@@ -527,7 +541,7 @@ public class KubesTest extends DefaultTask {
                 .addNewContainer()
                 .withImage(dockerTag)
                 .withCommand("bash")
-                .withArgs("-c", "sleep 3600")
+                .withArgs("-c", "sleep " + podSleepSeconds)
                 .addNewEnv()
                 .withName("DRIVER_NODE_MEMORY")
                 .withValue("1024m")
@@ -630,16 +644,13 @@ public class KubesTest extends DefaultTask {
     }
 
     private String getAdditionalArgs(String podName) {
-        return this.additionalArgs.isEmpty() ? "" : String.join(" ", reworkDbNameForASQL(this.additionalArgs, podName));
+        return this.additionalArgs.isEmpty() ? "" : String.join(" ", reworkDBNameForAzureSQL(this.additionalArgs, podName));
     }
 
-    private List<String> reworkDbNameForASQL(List<String> additionalArgs, String podName) {
-        List<String> reworkedArgs = new ArrayList<>();
-        for (String arg : additionalArgs) {
-            // replace db name placeholder in jdbc connection string
-            reworkedArgs.add(arg.replace("corda-db-test", podName + "-db"));
-        }
-        return reworkedArgs;
+    private List<String> reworkDBNameForAzureSQL(List<String> additionalArgs, String podName) {
+        // replace db name placeholder `corda-db-test` in jdbc connection string
+        return additionalArgs.stream().map(arg -> arg.replace("corda-db-test",  podName + "-db"))
+                .collect(Collectors.toList());
     }
 
     private String getLoggingLevel() {
@@ -729,11 +740,18 @@ public class KubesTest extends DefaultTask {
     }
 
     private SupportedDatabase getDBFlavour() {
-        for (SupportedDatabase db : SupportedDatabase.values()) {
-            if (sidecarImage.contains(db.asLowerCase())) {
-                return db;
+        if (additionalArgs == null || additionalArgs.isEmpty()
+                || additionalArgs.stream().noneMatch(arg -> arg.contains("custom.databaseProvider"))) {
+            throw new IllegalArgumentException("No `custom.databaseProvider` specified in ParallelTestGroup task.");
+        } else if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
+            return SupportedDatabase.AZURE;
+        } else {
+            for (SupportedDatabase db : SupportedDatabase.values()) {
+                if (sidecarImage.contains(db.asLowerCase())) {
+                    return db;
+                }
             }
         }
-        throw new IllegalArgumentException("Unsupported database: " + sidecarImage);
+        throw new IllegalArgumentException("Unsupported database sidecarImage: " + sidecarImage);
     }
 }
