@@ -445,12 +445,22 @@ public class KubesTest extends DefaultTask {
                 .addNewContainer()
                 .withImage(sidecarImage)
                 .addNewEnv()
+                .withName("POSTGRES_HOST_AUTH_METHOD") // required for postgres docker image
+                .withValue("trust")
+                .endEnv()
+                .addNewEnv()
+                .withName("ACCEPT_EULA") // required for mssql docker image
+                .withValue("Y")
+                .endEnv()
+                .addNewEnv()
                 .withName("DRIVER_NODE_MEMORY")
                 .withValue("1024m")
+                .endEnv()
+                .addNewEnv()
                 .withName("DRIVER_WEB_MEMORY")
                 .withValue("1024m")
                 .endEnv()
-                .withName(podName + "-pg")
+                .withName(podName + getDBContainerSuffix())
                 .withNewResources()
                 .addToRequests("cpu", new Quantity("1"))
                 .addToRequests("memory", new Quantity("1Gi"))
@@ -504,6 +514,8 @@ public class KubesTest extends DefaultTask {
                 .addNewEnv()
                 .withName("DRIVER_NODE_MEMORY")
                 .withValue("1024m")
+                .endEnv()
+                .addNewEnv()
                 .withName("DRIVER_WEB_MEMORY")
                 .withValue("1024m")
                 .endEnv()
@@ -696,6 +708,16 @@ public class KubesTest extends DefaultTask {
 
         public void delete() {
             Retry.fixedWithDelay(10, 1000, getProject().getLogger()).call(() -> backingResource.delete());
+        }
+    }
+
+    private String getDBContainerSuffix() {
+        if (sidecarImage.contains("postgres")) {
+            return "-pg";
+        } else if (sidecarImage.contains("mssql")) {
+            return "-mssql";
+        } else {
+            throw new IllegalStateException("Unexpected value: " + sidecarImage);
         }
     }
 }
