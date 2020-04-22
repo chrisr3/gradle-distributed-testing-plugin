@@ -55,6 +55,7 @@ dependencies {
     implementation 'org.yaml:snakeyaml:1.23'
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.5.2"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.5.2"
+    testCompile group: 'org.assertj', name: 'assertj-core', version: '3.6.1'
 }
 
 tasks.withType(Test) {
