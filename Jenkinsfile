@@ -29,7 +29,7 @@ pipeline {
                             "-Ddocker.container.env.parameter.testParam2=\"true\" " +
                             "-Ddocker.buildbase.tag=11latest " +
                             "-Ddocker.dockerfile=DockerfileJDK11" +
-                            " clean pushBuildImage --stacktrace"
+                            " clean pushBuildImage --stacktrace --info"
                 }
                 sh "kubectl auth can-i get pods"
             }
