@@ -23,9 +23,9 @@ pipeline {
                             "-Ddocker.push.password=\"\${DOCKER_PUSH_PWD}\" " +
                             "-Ddocker.work.dir=\"/tmp/\${EXECUTOR_NUMBER}\" " +
                             "-Ddocker.build.tag=\"\${DOCKER_TAG_TO_USE}\" " +
-                            "-Ddocker.build.image.arg.testArg=\"true\" " +
+                            "-Ddocker.image.build.arg.testArg=\"true\" " +
                             "-Ddocker.container.env.parameter.testParam=\"true\" " +
-                            "-Ddocker.build.image.arg.testArg2=\"true\" " +
+                            "-Ddocker.image.build.arg.testArg2=\"true\" " +
                             "-Ddocker.container.env.parameter.testParam2=\"true\" " +
                             "-Ddocker.buildbase.tag=11latest " +
                             "-Ddocker.dockerfile=DockerfileJDK11" +
