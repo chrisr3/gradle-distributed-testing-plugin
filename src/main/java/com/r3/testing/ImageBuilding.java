@@ -12,6 +12,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 
 /**
@@ -45,6 +46,15 @@ public class ImageBuilding implements Plugin<Project> {
                     dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
                     dockerBuildImage.getInputDir().set(new File("."));
                     dockerBuildImage.getDockerFile().set(new File(new File("testing"), System.getProperty("docker.dockerfile", "Dockerfile")));
+                    Properties props = System.getProperties();
+                    for (Object obj : props.keySet()) {
+                        if (obj.toString().contains("docker.image.build.arg.")) {
+                            String key = obj.toString().substring(23);
+                            String value = props.getProperty(obj.toString());
+                            project.getLogger().info("Setting build argument: " + key + " with value " + value);
+                            dockerBuildImage.getBuildArgs().put(key, value);
+                        }
+                    }
                 });
 
         this.buildTask = buildDockerImageForSource;
@@ -72,6 +82,15 @@ public class ImageBuilding implements Plugin<Project> {
                     map.put(gradleDir.getAbsolutePath(), "/tmp/gradle");
                     map.put(mavenDir.getAbsolutePath(), "/home/root/.m2");
                     dockerCreateContainer.getBinds().set(map);
+                    Properties props = System.getProperties();
+                    for (Object obj : props.keySet()) {
+                        if (obj.toString().contains("docker.container.env.parameter.")) {
+                            String key = obj.toString().substring(31);
+                            String value = props.getProperty(obj.toString());
+                            project.getLogger().info("Setting ENV variable: " + key + " with value " + value);
+                            dockerCreateContainer.withEnvVar(key, value);
+                        }
+                    }
                 });
 
 

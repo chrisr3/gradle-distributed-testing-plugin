@@ -4,7 +4,7 @@ import static com.r3.build.BuildControl.killAllExistingBuildsForJob
 killAllExistingBuildsForJob(env.JOB_NAME, env.BUILD_NUMBER.toInteger())
 
 pipeline {
-    agent { label 'local-k8s' }
+    agent { label 'k8s' }
     options { timestamps() }
 
     environment {
@@ -23,9 +23,13 @@ pipeline {
                             "-Ddocker.push.password=\"\${DOCKER_PUSH_PWD}\" " +
                             "-Ddocker.work.dir=\"/tmp/\${EXECUTOR_NUMBER}\" " +
                             "-Ddocker.build.tag=\"\${DOCKER_TAG_TO_USE}\" " +
+                            "-Ddocker.image.build.arg.testArg=\"true\" " +
+                            "-Ddocker.container.env.parameter.testParam=\"true\" " +
+                            "-Ddocker.image.build.arg.testArg2=\"true\" " +
+                            "-Ddocker.container.env.parameter.testParam2=\"true\" " +
                             "-Ddocker.buildbase.tag=11latest " +
                             "-Ddocker.dockerfile=DockerfileJDK11" +
-                            " clean pushBuildImage --stacktrace"
+                            " clean pushBuildImage --stacktrace --info"
                 }
                 sh "kubectl auth can-i get pods"
             }
