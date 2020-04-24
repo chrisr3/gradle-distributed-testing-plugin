@@ -7,6 +7,8 @@ import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Arrays;
@@ -26,6 +28,7 @@ public class ImageBuilding implements Plugin<Project> {
     public static final String PROVIDE_TAG_FOR_RUNNING_PROPERTY = "docker.run.tag";
     public DockerPushImage pushTask;
     public DockerBuildImage buildTask;
+    private static final Logger logger = LoggerFactory.getLogger(ImageBuilding.class);
 
     @Override
     public void apply(@NotNull final Project project) {
@@ -51,7 +54,7 @@ public class ImageBuilding implements Plugin<Project> {
                         if (obj.toString().contains("docker.image.build.arg.")) {
                             String key = obj.toString().substring(23);
                             String value = props.getProperty(obj.toString());
-                            project.getLogger().info("Setting build argument: " + key + " with value " + value);
+                            logger.info("Setting build argument: " + key + " with value " + value);
                             dockerBuildImage.getBuildArgs().put(key, value);
                         }
                     }
@@ -74,7 +77,7 @@ public class ImageBuilding implements Plugin<Project> {
                             mavenDir.mkdirs();
                         }
 
-                        project.getLogger().info("Will use: " + gradleDir.getAbsolutePath() + " for caching gradle artifacts");
+                        logger.info("Will use: " + gradleDir.getAbsolutePath() + " for caching gradle artifacts");
                     });
                     dockerCreateContainer.dependsOn(buildDockerImageForSource);
                     dockerCreateContainer.targetImageId(buildDockerImageForSource.getImageId());
@@ -87,7 +90,7 @@ public class ImageBuilding implements Plugin<Project> {
                         if (obj.toString().contains("docker.container.env.parameter.")) {
                             String key = obj.toString().substring(31);
                             String value = props.getProperty(obj.toString());
-                            project.getLogger().info("Setting ENV variable: " + key + " with value " + value);
+                            logger.info("Setting ENV variable: " + key + " with value " + value);
                             dockerCreateContainer.withEnvVar(key, value);
                         }
                     }
