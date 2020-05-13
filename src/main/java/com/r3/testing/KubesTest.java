@@ -743,7 +743,7 @@ public class KubesTest extends DefaultTask {
         if (additionalArgs == null || additionalArgs.isEmpty()
                 || additionalArgs.stream().noneMatch(arg -> arg.contains("custom.databaseProvider"))) {
             throw new IllegalArgumentException("No `custom.databaseProvider` specified in ParallelTestGroup task.");
-        } else if (additionalArgs.stream().anyMatch(arg -> arg.contains("azure"))) {
+        } else if (additionalArgs.stream().anyMatch(arg -> arg.contains(SupportedDatabase.AZURE.asLowerCase()))) {
             return SupportedDatabase.AZURE;
         } else {
             for (SupportedDatabase db : SupportedDatabase.values()) {
