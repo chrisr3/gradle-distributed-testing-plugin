@@ -420,6 +420,9 @@ public class KubesTest extends DefaultTask {
         if (additionalArgs.stream().anyMatch(arg -> arg.contains(SupportedDatabase.AZURE.asLowerCase()))) {
             // Azure SQL
             setUpAzureSQLDBSchemaForPod(podName);
+            additionalArgs.add("-Dcorda.dataSourceProperties.dataSource.url=" + System.getProperty("infra.asql.db.url"));
+            additionalArgs.add("-Dtest.db.admin.user=" + System.getProperty("infra.asql.db.user"));
+            additionalArgs.add("-Dtest.db.admin.password=" + System.getProperty("infra.asql.db.password"));
             return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
         } else if (withDB) {
             // Postgres, MSSQL
