@@ -423,7 +423,7 @@ public class KubesTest extends DefaultTask {
             addAdditionalArgsForAzureSQL();
             return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
         } else if (withDB) {
-            // Postgres, MSSQL
+            // Postgres, MSSQL, Oracle
             return buildPodRequestWithWorkerNodeAndDBContainer(podName, pvc, podIdx);
         } else {
             // No DB / H2
