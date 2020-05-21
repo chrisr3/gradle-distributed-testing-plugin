@@ -420,9 +420,7 @@ public class KubesTest extends DefaultTask {
         if (additionalArgs.stream().anyMatch(arg -> arg.contains(SupportedDatabase.AZURE.asLowerCase()))) {
             // Azure SQL
             setUpAzureSQLDBSchemaForPod(podName);
-            additionalArgs.add("-Dcorda.dataSourceProperties.dataSource.url=" + System.getProperty("infra.asql.db.url"));
-            additionalArgs.add("-Dtest.db.admin.user=" + System.getProperty("infra.asql.db.user"));
-            additionalArgs.add("-Dtest.db.admin.password=" + System.getProperty("infra.asql.db.password"));
+            addAdditionalArgsForAzureSQL();
             return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
         } else if (withDB) {
             // Postgres, MSSQL
@@ -430,6 +428,15 @@ public class KubesTest extends DefaultTask {
         } else {
             // No DB / H2
             return buildPodRequestWithOnlyWorkerNode(podName, pvc, podIdx);
+        }
+    }
+
+    private void addAdditionalArgsForAzureSQL() {
+        // System properties are passed from corda-shared-build-pipeline-steps library - stored as Jenkins credentials
+        if (additionalArgs.stream().noneMatch(arg -> arg.contains("corda.dataSourceProperties.dataSource.url"))) {
+            additionalArgs.add("-Dcorda.dataSourceProperties.dataSource.url=" + System.getProperty("infra.asql.db.url"));
+            additionalArgs.add("-Dtest.db.admin.user=" + System.getProperty("infra.asql.db.user"));
+            additionalArgs.add("-Dtest.db.admin.password=" + System.getProperty("infra.asql.db.password"));
         }
     }
 
