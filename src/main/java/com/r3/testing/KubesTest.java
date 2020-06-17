@@ -314,10 +314,8 @@ public class KubesTest extends DefaultTask {
                 try (KubernetesClient client = getKubernetesClient()) {
                     deletePodAndWaitForDeletion(namespace, podName, client);
                     getProject().getLogger().lifecycle("creating pod: " + podName);
-                    synchronized (this) {
-                        createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
-                        waitForPodToStart(createdPod);
-                    }
+                    createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
+                    waitForPodToStart(createdPod);
                     remainingPods.add(podName);
                     getProject().getLogger().lifecycle("scheduled pod: " + podName);
                 }
