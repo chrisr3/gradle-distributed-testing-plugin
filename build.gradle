@@ -17,7 +17,7 @@ apply plugin: 'com.gradle.plugin-publish'
 apply plugin: "com.bmuschko.docker-remote-api"
 
 group = 'com.r3.testing'
-version = '1.2-LOCAL-K8S-SHARED-CACHE-SNAPSHOT'
+version = '1.2-PARALLEL-SNAPSHOT'
 
 ext {
     vcsUrl = 'https://github.com/corda/gradle-distributed-testing-plugin'

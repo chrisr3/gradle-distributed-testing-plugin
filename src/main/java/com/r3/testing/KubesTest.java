@@ -96,7 +96,7 @@ public class KubesTest extends DefaultTask {
             //it's possible that a pod is being deleted by the original build, this can lead to racey conditions
         }
 
-        List<Future<KubePodResult>> futures = IntStream.range(0, numberOfPods).mapToObj(i -> {
+        List<Future<KubePodResult>> futures = IntStream.range(0, numberOfPods).parallel().mapToObj(i -> {
             String podName = generatePodName(stableRunId, random, i);
             return submitBuild(NAMESPACE, numberOfPods, i, podName, printOutput, 3);
         }).collect(Collectors.toList());
