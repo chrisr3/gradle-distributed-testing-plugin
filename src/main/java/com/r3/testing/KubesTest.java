@@ -96,10 +96,11 @@ public class KubesTest extends DefaultTask {
             //it's possible that a pod is being deleted by the original build, this can lead to racey conditions
         }
 
-        List<Future<KubePodResult>> futures = IntStream.range(0, numberOfPods).mapToObj(i -> {
+        List<Future<KubePodResult>> futures = Collections.synchronizedList(new ArrayList<>());
+        IntStream.range(0, numberOfPods).parallel().forEach(i -> {
             String podName = generatePodName(stableRunId, random, i);
-            return submitBuild(NAMESPACE, numberOfPods, i, podName, printOutput, 3);
-        }).collect(Collectors.toList());
+            futures.add(submitBuild(NAMESPACE, numberOfPods, i, podName, printOutput, 3));
+        });
 
         this.testOutput = Collections.synchronizedList(futures.stream().map(it -> {
             try {
@@ -313,10 +314,8 @@ public class KubesTest extends DefaultTask {
                 try (KubernetesClient client = getKubernetesClient()) {
                     deletePodAndWaitForDeletion(namespace, podName, client);
                     getProject().getLogger().lifecycle("creating pod: " + podName);
-                    synchronized (this) {
-                        createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
-                        waitForPodToStart(createdPod);
-                    }
+                    createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
+                    waitForPodToStart(createdPod);
                     remainingPods.add(podName);
                     getProject().getLogger().lifecycle("scheduled pod: " + podName);
                 }
