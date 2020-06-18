@@ -649,11 +649,30 @@ public class KubesTest extends DefaultTask {
                 artifactoryPassword +
                 "-Dkubenetize -PdockerFork=" + podIdx + " -PdockerForks=" + numberOfPods + " " + fullTaskToExecutePath + " " + getAdditionalArgs(podName) + " " + getLoggingLevel() + " 2>&1) ; " +
                 "let rs=$? ; sleep 10 ; exit ${rs}";
+
+        shellScript = getGradlePluginInstallScript() + " ; " + shellScript;
+
         return new String[]{"bash", "-c", shellScript};
     }
 
     private String getAdditionalArgs(String podName) {
         return this.additionalArgs.isEmpty() ? "" : String.join(" ", reworkDBNameForAzureSQL(this.additionalArgs, podName));
+    }
+
+    private String getGradlePluginInstallScript() {
+        // This exists for backwards compatibility with the
+        // now removed gradle plugins - some older builds
+        // may need to install them locally (eg; 3.0 backports)
+        return "if [ -f \"gradle-plugins/settings.gradle\" ] ; then ( " +
+                    "cd \"gradle-plugins/publish-utils\" ; " +
+                    "../../gradlew -u install ; " +
+                    "cd ../ ; " +
+                    "../gradlew install ; " +
+                    "echo \"done gradle install\" ) ; " +
+                // Erase any existing .m2 plugins to avoid clashes
+                "elif [ -d \"~/.m2/repository/net/corda/plugins\" ] ; then " +
+                    "rm -r \"~/.m2/repository/net/corda/plugins\" ; " +
+                "fi";
     }
 
     private List<String> reworkDBNameForAzureSQL(List<String> additionalArgs, String podName) {
