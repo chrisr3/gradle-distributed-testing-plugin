@@ -47,7 +47,23 @@ public enum SupportedDatabase {
                 }
             };
         }
-    }, AZURE {
+    }, ORACLE {
+        @Override
+        public String asLowerCase() {
+            return ORACLE.toString().toLowerCase();
+        }
+
+        @Override
+        public String getDBContainerSuffix() {
+            return "-orcl";
+        }
+
+        @Override
+        public Map<String, String> getEnvVars(List<String> additionalArgs) {
+            return Collections.emptyMap();
+        }
+    },
+    AZURE {
         @Override
         public String asLowerCase() {
             return AZURE.toString().toLowerCase();
@@ -55,7 +71,7 @@ public enum SupportedDatabase {
 
         @Override
         public String getDBContainerSuffix() {
-            throw new IllegalStateException("DB container not required for AzureSQL");
+            throw new IllegalStateException("DB container not required for AzureSQL.");
         }
 
         @Override
