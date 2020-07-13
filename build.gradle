@@ -5,16 +5,12 @@ import com.r3.testing.ImageBuilding
 import com.r3.testing.DistributedTesting
 
 plugins {
-    id 'com.gradle.plugin-publish' version '0.10.1' apply false
-    id 'com.jfrog.artifactory' version '4.9.6'
+    id 'java-gradle-plugin'
+    id 'com.bmuschko.docker-remote-api'
+    id 'maven-publish'
+    id 'com.gradle.plugin-publish'
+    id 'com.jfrog.artifactory'
 }
-
-apply plugin: 'groovy'
-apply plugin: 'java-gradle-plugin'
-apply plugin: 'maven-publish'
-apply plugin: 'com.jfrog.artifactory'
-apply plugin: 'com.gradle.plugin-publish'
-apply plugin: "com.bmuschko.docker-remote-api"
 
 group = 'com.r3.testing'
 version = '1.2-LOCAL-K8S-SHARED-CACHE-SNAPSHOT'
@@ -49,12 +45,14 @@ dependencies {
     implementation 'org.apache.commons:commons-compress:1.19'
     implementation 'org.apache.commons:commons-csv:1.1'
     implementation group: 'org.jetbrains', name: 'annotations', version: '13.0'
-    implementation 'com.microsoft.azure:azure:1.3.0'
-    testImplementation "org.junit.jupiter:junit-jupiter-api:5.5.2"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.5.2"
+    implementation('com.microsoft.azure:azure:1.3.0') {
+        exclude group: 'org.slf4j', module: 'slf4j-simple'
+    }
+    testImplementation "org.junit.jupiter:junit-jupiter-api:$junit_jupiter_version"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junit_jupiter_version"
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
     useJUnitPlatform()
 
     // Prevent the project from creating temporary files outside of the build directory.
@@ -113,8 +111,8 @@ artifactory {
     }
 }
 
-artifactoryPublish {
-    dependsOn jar
+tasks.named('artifactoryPublish') {
+    dependsOn tasks.named('jar', Jar)
 }
 
 wrapper {
@@ -122,7 +120,7 @@ wrapper {
     distributionType = Wrapper.DistributionType.ALL
 }
 
-task allParallelUnitTest(type: ParallelTestGroup) {
+tasks.register('allParallelUnitTest', ParallelTestGroup) {
     podLogLevel PodLogLevel.INFO
     testGroups "test"
     numberOfShards 2
@@ -133,7 +131,7 @@ task allParallelUnitTest(type: ParallelTestGroup) {
     nodeTaints "small"
 }
 
-task integrationTestClasses {
+tasks.register('integrationTestClasses') {
     doFirst {
         logger.lifecycle("placeholder for integration test compilation to allow plugin testing")
     }
