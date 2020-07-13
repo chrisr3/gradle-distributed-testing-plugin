@@ -8,6 +8,7 @@ import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.utils.IOUtils;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Zip;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -55,20 +56,20 @@ public class TestDurationArtifacts {
      * @param name    basename for the test.
      * @return the csv task
      */
-    private static Task createCsvTask(@NotNull final Project project, @NotNull final String name) {
-        return project.getTasks().create("createCsvFromXmlFor" + capitalize(name), Task.class, t -> {
+    private static TaskProvider<? extends Task> createCsvTask(@NotNull final Project project, @NotNull final String name) {
+        return project.getTasks().register("createCsvFromXmlFor" + capitalize(name), Task.class, t -> {
             t.setGroup(DistributedTesting.GRADLE_GROUP);
             t.setDescription("Create csv from all discovered junit xml files");
 
             // Parse all the junit results and write them to a csv file.
             t.doFirst(task -> {
-                project.getLogger().warn("About to create CSV file and zip it");
+                task.getLogger().warn("About to create CSV file and zip it");
 
                 // Reload the test object from artifactory
                 loadTests();
                 // Get the list of junit xml artifacts
                 final List<Path> testXmlFiles = getTestXmlFiles(project.getBuildDir().getAbsoluteFile().toPath());
-                project.getLogger().warn("Found {} xml junit files", testXmlFiles.size());
+                task.getLogger().warn("Found {} xml junit files", testXmlFiles.size());
 
                 //  Read test xml files for tests and duration and add them to the `Tests` object
                 //  This adjusts the runCount and over all average duration for existing tests.
@@ -95,7 +96,7 @@ public class TestDurationArtifacts {
 
                 //  Write the test file to disk.
                 try {
-                    final FileWriter writer = new FileWriter(new File(project.getRootDir(), ARTIFACT + ".csv"));
+                    final Writer writer = new BufferedWriter(new FileWriter(new File(project.getRootDir(), ARTIFACT + ".csv")));
                     tests.write(writer);
                     LOG.warn("Written tests csv file with {} tests", tests.size());
                 } catch (IOException ignored) {
@@ -105,7 +106,7 @@ public class TestDurationArtifacts {
     }
 
     @NotNull
-    static String capitalize(@NotNull final String str) {
+    private static String capitalize(@NotNull final String str) {
         return str.substring(0, 1).toUpperCase() + str.substring(1); // groovy has this as an extension method
     }
 
@@ -117,8 +118,8 @@ public class TestDurationArtifacts {
      * @return gradle task
      */
     @NotNull
-    private static Task createJunitZipTask(@NotNull final Project project, @NotNull final String name) {
-        return project.getTasks().create("zipJunitXmlFilesAndUploadFor" + capitalize(name), Zip.class, z -> {
+    private static TaskProvider<? extends Task> createJunitZipTask(@NotNull final Project project, @NotNull final String name) {
+        return project.getTasks().register("zipJunitXmlFilesAndUploadFor" + capitalize(name), Zip.class, z -> {
             z.setGroup(DistributedTesting.GRADLE_GROUP);
             z.setDescription("Zip junit files and upload to artifactory");
 
@@ -127,7 +128,7 @@ public class TestDurationArtifacts {
             z.setIncludeEmptyDirs(false);
             z.from(project.getRootDir(), task -> task.include("**/build/test-results-xml/**/*.xml", "**/build/test-results/**/*.xml"));
             z.doLast(task -> {
-                try (FileInputStream inputStream = new FileInputStream(new File(z.getArchiveFileName().get()))) {
+                try (InputStream inputStream = new BufferedInputStream(new FileInputStream(z.getArchiveFileName().get()))) {
                     new Artifactory().put(BASE_URL, getBranchTag(), "junit", EXTENSION, inputStream);
                 } catch (Exception ignored) {
                 }
@@ -143,8 +144,8 @@ public class TestDurationArtifacts {
      * @return gradle task
      */
     @NotNull
-    private static Task createCsvZipAndUploadTask(@NotNull final Project project, @NotNull final String name) {
-        return project.getTasks().create("zipCsvFilesAndUploadFor" + capitalize(name), Zip.class, z -> {
+    private static TaskProvider<? extends Task> createCsvZipAndUploadTask(@NotNull final Project project, @NotNull final String name) {
+        return project.getTasks().register("zipCsvFilesAndUploadFor" + capitalize(name), Zip.class, z -> {
             z.setGroup(DistributedTesting.GRADLE_GROUP);
             z.setDescription("Zips test duration csv and uploads to artifactory");
 
@@ -160,16 +161,16 @@ public class TestDurationArtifacts {
             z.doLast(task -> {
                 //  We've now created the one csv file containing the tests and their mean durations,
                 //  this task has zipped it, so we now just upload it.
-                project.getLogger().warn("SAVING tests");
-                project.getLogger().warn("Attempting to upload {}", z.getArchiveFileName().get());
-                try (FileInputStream inputStream = new FileInputStream(new File(z.getArchiveFileName().get()))) {
+                task.getLogger().warn("SAVING tests");
+                task.getLogger().warn("Attempting to upload {}", z.getArchiveFileName().get());
+                try (InputStream inputStream = new BufferedInputStream(new FileInputStream(z.getArchiveFileName().get()))) {
                     if (!new TestDurationArtifacts().put(getBranchTag(), inputStream)) {
-                        project.getLogger().warn("Could not upload zip of tests");
+                        task.getLogger().warn("Could not upload zip of tests");
                     } else {
-                        project.getLogger().warn("SAVED tests");
+                        task.getLogger().warn("SAVED tests");
                     }
                 } catch (Exception e) {
-                    project.getLogger().warn("Problem trying to upload: {} {}", z.getArchiveFileName().get(), e.toString());
+                    task.getLogger().warn("Problem trying to upload: {} {}", z.getArchiveFileName().get(), e.toString());
                 }
             });
         });
@@ -184,19 +185,19 @@ public class TestDurationArtifacts {
      * @return a reference to the created task.
      */
     @NotNull
-    public static Task createZipTask(@NotNull final Project project, @NotNull final String name, @Nullable final Task task) {
-        final Task csvTask = createCsvTask(project, name);
+    static TaskProvider<? extends Task> createZipTask(@NotNull final Project project, @NotNull final String name, @Nullable final TaskProvider<? extends Task> task) {
+        final TaskProvider<? extends Task> csvTask = createCsvTask(project, name);
 
         if (Properties.getPublishJunitTests()) {
-            final Task zipJunitTask = createJunitZipTask(project, name);
-            csvTask.dependsOn(zipJunitTask);
+            final TaskProvider<? extends Task> zipJunitTask = createJunitZipTask(project, name);
+            csvTask.configure(t -> t.dependsOn(zipJunitTask));
         }
 
         if (task != null) {
-            csvTask.dependsOn(task);
+            csvTask.configure(t -> t.dependsOn(task));
         }
-        final Task zipCsvTask = createCsvZipAndUploadTask(project, name);
-        zipCsvTask.dependsOn(csvTask); // we have to create the csv before we can zip it.
+        final TaskProvider<? extends Task> zipCsvTask = createCsvZipAndUploadTask(project, name);
+        zipCsvTask.configure(t -> t.dependsOn(csvTask)); // we have to create the csv before we can zip it.
 
         return zipCsvTask;
     }

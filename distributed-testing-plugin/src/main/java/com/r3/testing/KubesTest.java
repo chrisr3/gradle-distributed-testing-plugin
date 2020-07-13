@@ -88,7 +88,7 @@ public class KubesTest extends DefaultTask {
         try (KubernetesClient client = getKubernetesClient()) {
             client.pods().inNamespace(NAMESPACE).list().getItems().forEach(podToDelete -> {
                 if (podToDelete.getMetadata().getName().contains(stableRunId)) {
-                    getProject().getLogger().lifecycle("deleting: " + podToDelete.getMetadata().getName());
+                    getLogger().lifecycle("deleting: " + podToDelete.getMetadata().getName());
                     deletePodAndWaitForDeletion(NAMESPACE, podToDelete.getMetadata().getName(), client);
                 }
             });
@@ -148,11 +148,11 @@ public class KubesTest extends DefaultTask {
                         }
                     }
                 } catch (CloudException e) {
-                    getProject().getLogger().lifecycle(
+                    getLogger().lifecycle(
                             "CloudException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
                     e.printStackTrace();
                 } catch (IOException e) {
-                    getProject().getLogger().lifecycle(
+                    getLogger().lifecycle(
                             "IOException thrown when getting Azure client for tearing down orphaned Azure SQL databases.");
                     e.printStackTrace();
                 }
@@ -180,11 +180,11 @@ public class KubesTest extends DefaultTask {
                     }
                 }
             } catch (CloudException e) {
-                getProject().getLogger().lifecycle(
+                getLogger().lifecycle(
                         "CloudException thrown when getting Azure client for tearing down Azure SQL databases post-test.");
                 e.printStackTrace();
             } catch (IOException e) {
-                getProject().getLogger().lifecycle(
+                getLogger().lifecycle(
                         "IOException thrown when getting Azure client for tearing down Azure SQL databases post-test.");
                 e.printStackTrace();
             }
@@ -208,11 +208,11 @@ public class KubesTest extends DefaultTask {
              FileChannel c = file.getChannel();
              FileLock lock = c.lock()) {
 
-            getProject().getLogger().quiet("Invoking kubectl to attempt to refresh token");
+            getLogger().quiet("Invoking kubectl to attempt to refresh token");
             ProcessBuilder tokenRefreshCommand = new ProcessBuilder().command("kubectl", "auth", "can-i", "get", "pods");
             Process refreshProcess = tokenRefreshCommand.start();
             int resultCodeOfRefresh = refreshProcess.waitFor();
-            getProject().getLogger().quiet("Completed Token refresh");
+            getLogger().quiet("Completed Token refresh");
 
             if (resultCodeOfRefresh != 0) {
                 throw new InvalidUserCodeException("Failed to invoke kubectl to refresh tokens");
@@ -307,17 +307,17 @@ public class KubesTest extends DefaultTask {
         File outputFile = new File(outputDir, "container-" + podIdx + ".log");
         try {
             // pods might die, so we retry
-            return Retry.fixed(numberOfRetries, getProject().getLogger()).call(() -> {
+            return Retry.fixed(numberOfRetries, getLogger()).call(() -> {
                 outputFile.createNewFile();
                 // remove pod if exists
                 Pod createdPod;
                 try (KubernetesClient client = getKubernetesClient()) {
                     deletePodAndWaitForDeletion(namespace, podName, client);
-                    getProject().getLogger().lifecycle("creating pod: " + podName);
+                    getLogger().lifecycle("creating pod: " + podName);
                     createdPod = client.pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
                     waitForPodToStart(createdPod);
                     remainingPods.add(podName);
-                    getProject().getLogger().lifecycle("scheduled pod: " + podName);
+                    getLogger().lifecycle("scheduled pod: " + podName);
                 }
 
                 attachStatusListenerToPod(createdPod);
@@ -327,12 +327,12 @@ public class KubesTest extends DefaultTask {
 
                 CompletableFuture<Integer> waiter = executeBuild(namespace, numberOfPods, podIdx, podName, podLogsDirectory, printOutput, stdOutOs, stdOutIs, errChannelStream, outputFile);
                 int resCode = waiter.join();
-                getProject().getLogger().lifecycle("build has ended on on pod " + podName + " (" + podNumber + "/" + numberOfPods + ") with result " + resCode + " , gathering results");
+                getLogger().lifecycle("build has ended on on pod " + podName + " (" + podNumber + "/" + numberOfPods + ") with result " + resCode + " , gathering results");
                 Collection<File> binaryResults;
                 //we don't retry on the final attempt as this will crash the build and some pods might not get to finish
                 if (resCode != 0 && testRetries.getAndIncrement() < numberOfRetries - 1) {
                     downloadTestXmlFromPod(namespace, createdPod);
-                    getProject().getLogger().lifecycle("There are test failures in this pod. Retrying failed tests!!!");
+                    getLogger().lifecycle("There are test failures in this pod. Retrying failed tests!!!");
                     throw new InvalidUserCodeException("There are test failures in this pod");
                 } else {
                     binaryResults = downloadTestXmlFromPod(namespace, createdPod);
@@ -351,7 +351,7 @@ public class KubesTest extends DefaultTask {
                 return new KubePodResult(podIdx, resCode, outputFile, binaryResults);
             });
         } catch (Retry.RetryException e) {
-            getProject().getLogger().warn("Encountered an exception ");
+            getLogger().warn("Encountered an exception ");
             try (KubernetesClient client = getKubernetesClient()) {
                 deletePodAndWaitForDeletion(NAMESPACE, podName, client);
                 Pod reCreatedPod = getKubernetesClient().pods().inNamespace(namespace).create(buildPodRequest(podName, pvc, sidecarImage != null, podIdx));
@@ -361,7 +361,7 @@ public class KubesTest extends DefaultTask {
                 client.persistentVolumeClaims().delete(pvc);
                 return new KubePodResult(podIdx, 255, outputFile, downloadedFiles);
             } catch (InterruptedException ex) {
-                getProject().getLogger().error("Failed to recreate pod " + podName + "for log and test xml collection");
+                getLogger().error("Failed to recreate pod " + podName + "for log and test xml collection");
             }
 
             throw new InvalidUserCodeException("Failed to build in pod " + podName + " (" + podNumber + "/" + numberOfPods + ") in " + numberOfRetries + " attempts", e);
@@ -403,7 +403,7 @@ public class KubesTest extends DefaultTask {
         stdOutIs.connect(stdOutOs);
 
         String[] buildCommand = getBuildCommand(numberOfPods, podIdx, podName);
-        getProject().getLogger().quiet("About to execute " + Arrays.stream(buildCommand).reduce("", (s, s2) -> s + " " + s2) + " on pod " + podName);
+        getLogger().quiet("About to execute " + Arrays.stream(buildCommand).reduce("", (s, s2) -> s + " " + s2) + " on pod " + podName);
         client.pods().inNamespace(namespace).withName(podName)
                 .inContainer(podName)
                 .writingOutput(stdOutOs)
@@ -572,7 +572,7 @@ public class KubesTest extends DefaultTask {
                 while ((line = br.readLine()) != null) {
                     String toWrite = ("Container" + podIdx + ":   " + line).trim();
                     if (printOutput) {
-                        getProject().getLogger().lifecycle(toWrite);
+                        getLogger().lifecycle(toWrite);
                     }
                     out.write(line);
                     out.newLine();
@@ -590,7 +590,7 @@ public class KubesTest extends DefaultTask {
         return client.pods().inNamespace(pod.getMetadata().getNamespace()).withName(pod.getMetadata().getName()).watch(new Watcher<Pod>() {
             @Override
             public void eventReceived(Action action, Pod resource) {
-                getProject().getLogger().lifecycle("[StatusChange]  pod " + resource.getMetadata().getName() + " " + action.name() + " (" + resource.getStatus().getPhase() + ")");
+                getLogger().lifecycle("[StatusChange]  pod " + resource.getMetadata().getName() + " " + action.name() + " (" + resource.getStatus().getPhase() + ")");
             }
 
             @Override
@@ -602,13 +602,13 @@ public class KubesTest extends DefaultTask {
 
     private void waitForPodToStart(Pod pod) {
         try (KubernetesClient client = getKubernetesClient()) {
-            getProject().getLogger().lifecycle("Waiting for pod " + pod.getMetadata().getName() + " to start before executing build");
+            getLogger().lifecycle("Waiting for pod " + pod.getMetadata().getName() + " to start before executing build");
             try {
                 client.pods().inNamespace(pod.getMetadata().getNamespace()).withName(pod.getMetadata().getName()).waitUntilReady(DEFAULT_POD_ALLOCATION_TIMEOUT, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 throw new InvalidUserCodeException("Exception occurred", e);
             }
-            getProject().getLogger().lifecycle("pod " + pod.getMetadata().getName() + " has started, executing build");
+            getLogger().lifecycle("pod " + pod.getMetadata().getName() + " has started, executing build");
         }
     }
 
@@ -621,7 +621,7 @@ public class KubesTest extends DefaultTask {
         if (!tempDir.toFile().exists()) {
             tempDir.toFile().mkdirs();
         }
-        getProject().getLogger().lifecycle("Saving " + podName + " results to: " + tempDir.toAbsolutePath().toFile().getAbsolutePath());
+        getLogger().lifecycle("Saving " + podName + " results to: " + tempDir.toAbsolutePath().toFile().getAbsolutePath());
         try (KubernetesClient client = getKubernetesClient()) {
             client.pods()
                     .inNamespace(namespace)
@@ -721,18 +721,18 @@ public class KubesTest extends DefaultTask {
 
             @Override
             public void onOpen(Response response) {
-                getProject().getLogger().lifecycle("Build started on pod  " + podName);
+                getLogger().lifecycle("Build started on pod  " + podName);
             }
 
             @Override
             public void onFailure(Throwable t, Response response) {
-                getProject().getLogger().lifecycle("Received error from pod  " + podName);
+                getLogger().lifecycle("Received error from pod  " + podName);
                 waitingFuture.completeExceptionally(t);
             }
 
             @Override
             public void onClose(int code, String reason) {
-                getProject().getLogger().lifecycle("Received onClose() from pod " + podName + " , build took: " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
+                getLogger().lifecycle("Received onClose() from pod " + podName + " , build took: " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
                 try {
                     String errChannelContents = errChannelStream.toString();
                     Status status = Serialization.unmarshal(errChannelContents, Status.class);
@@ -759,11 +759,11 @@ public class KubesTest extends DefaultTask {
         }
 
         public Pod get() {
-            return Retry.fixedWithDelay(10, 1000, getProject().getLogger()).call(() -> backingResource.get());
+            return Retry.fixedWithDelay(10, 1000, getLogger()).call(() -> backingResource.get());
         }
 
         public void delete() {
-            Retry.fixedWithDelay(10, 1000, getProject().getLogger()).call(() -> backingResource.delete());
+            Retry.fixedWithDelay(10, 1000,  getLogger()).call(() -> backingResource.delete());
         }
     }
 
