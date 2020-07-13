@@ -1,0 +1,5 @@
+plugins {
+    id 'com.r3.testing.distributed-testing'
+}
+
+apply from: 'repositories.gradle'

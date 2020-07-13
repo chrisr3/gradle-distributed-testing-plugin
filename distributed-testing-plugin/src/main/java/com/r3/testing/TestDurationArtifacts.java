@@ -62,13 +62,13 @@ public class TestDurationArtifacts {
 
             // Parse all the junit results and write them to a csv file.
             t.doFirst(task -> {
-                project.getLogger().warn("About to create CSV file and zip it");
+                task.getLogger().warn("About to create CSV file and zip it");
 
                 // Reload the test object from artifactory
                 loadTests();
                 // Get the list of junit xml artifacts
                 final List<Path> testXmlFiles = getTestXmlFiles(project.getBuildDir().getAbsoluteFile().toPath());
-                project.getLogger().warn("Found {} xml junit files", testXmlFiles.size());
+                task.getLogger().warn("Found {} xml junit files", testXmlFiles.size());
 
                 //  Read test xml files for tests and duration and add them to the `Tests` object
                 //  This adjusts the runCount and over all average duration for existing tests.
@@ -95,7 +95,7 @@ public class TestDurationArtifacts {
 
                 //  Write the test file to disk.
                 try {
-                    final FileWriter writer = new FileWriter(new File(project.getRootDir(), ARTIFACT + ".csv"));
+                    final Writer writer = new BufferedWriter(new FileWriter(new File(project.getRootDir(), ARTIFACT + ".csv")));
                     tests.write(writer);
                     LOG.warn("Written tests csv file with {} tests", tests.size());
                 } catch (IOException ignored) {
@@ -127,7 +127,7 @@ public class TestDurationArtifacts {
             z.setIncludeEmptyDirs(false);
             z.from(project.getRootDir(), task -> task.include("**/build/test-results-xml/**/*.xml", "**/build/test-results/**/*.xml"));
             z.doLast(task -> {
-                try (FileInputStream inputStream = new FileInputStream(new File(z.getArchiveFileName().get()))) {
+                try (InputStream inputStream = new BufferedInputStream(new FileInputStream(z.getArchiveFileName().get()))) {
                     new Artifactory().put(BASE_URL, getBranchTag(), "junit", EXTENSION, inputStream);
                 } catch (Exception ignored) {
                 }
@@ -160,16 +160,16 @@ public class TestDurationArtifacts {
             z.doLast(task -> {
                 //  We've now created the one csv file containing the tests and their mean durations,
                 //  this task has zipped it, so we now just upload it.
-                project.getLogger().warn("SAVING tests");
-                project.getLogger().warn("Attempting to upload {}", z.getArchiveFileName().get());
-                try (FileInputStream inputStream = new FileInputStream(new File(z.getArchiveFileName().get()))) {
+                task.getLogger().warn("SAVING tests");
+                task.getLogger().warn("Attempting to upload {}", z.getArchiveFileName().get());
+                try (InputStream inputStream = new BufferedInputStream(new FileInputStream(z.getArchiveFileName().get()))) {
                     if (!new TestDurationArtifacts().put(getBranchTag(), inputStream)) {
-                        project.getLogger().warn("Could not upload zip of tests");
+                        task.getLogger().warn("Could not upload zip of tests");
                     } else {
-                        project.getLogger().warn("SAVED tests");
+                        task.getLogger().warn("SAVED tests");
                     }
                 } catch (Exception e) {
-                    project.getLogger().warn("Problem trying to upload: {} {}", z.getArchiveFileName().get(), e.toString());
+                    task.getLogger().warn("Problem trying to upload: {} {}", z.getArchiveFileName().get(), e.toString());
                 }
             });
         });

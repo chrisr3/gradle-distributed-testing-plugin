@@ -6,14 +6,19 @@ import com.bmuschko.gradle.docker.tasks.image.*;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.tasks.Delete;
+import org.gradle.api.tasks.TaskCollection;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+
+import static java.util.stream.Collectors.toList;
+import static org.gradle.api.plugins.BasePlugin.CLEAN_TASK_NAME;
 
 /**
  * this plugin is responsible for setting up all the required docker image building tasks required for producing and pushing an
@@ -29,6 +34,7 @@ public class ImageBuilding implements Plugin<Project> {
 
     @Override
     public void apply(@NotNull final Project project) {
+        project.getPluginManager().apply("com.bmuschko.docker-remote-api");
 
         final DockerRegistryCredentials registryCredentialsForPush = new DockerRegistryCredentials(project.getObjects());
         registryCredentialsForPush.getUsername().set("stefanotestingcr");
@@ -43,7 +49,11 @@ public class ImageBuilding implements Plugin<Project> {
 
         final DockerBuildImage buildDockerImageForSource = project.getTasks().create("buildDockerImageForSource", DockerBuildImage.class,
                 dockerBuildImage -> {
-                    dockerBuildImage.dependsOn(Arrays.asList(project.getRootProject().getTasksByName("clean", true), pullTask));
+                    // Locate all "clean" tasks without also forcibly configuring them.
+                    List<TaskCollection> cleanTasks = project.getRootProject().getAllprojects().stream().map(p ->
+                        p.getTasks().withType(Delete.class).matching(t -> CLEAN_TASK_NAME.equals(t.getName()))
+                    ).collect(toList());
+                    dockerBuildImage.dependsOn(cleanTasks, pullTask);
                     dockerBuildImage.getInputDir().set(new File("."));
                     dockerBuildImage.getDockerFile().set(new File(new File("testing"), System.getProperty("docker.dockerfile", "Dockerfile")));
                     Properties props = System.getProperties();
@@ -51,7 +61,7 @@ public class ImageBuilding implements Plugin<Project> {
                         if (obj.toString().contains("docker.image.build.arg.")) {
                             String key = obj.toString().substring(23);
                             String value = props.getProperty(obj.toString());
-                            project.getLogger().info("Setting build argument: " + key + " with value " + value);
+                            dockerBuildImage.getLogger().info("Setting build argument: " + key + " with value " + value);
                             dockerBuildImage.getBuildArgs().put(key, value);
                         }
                     }
@@ -87,7 +97,7 @@ public class ImageBuilding implements Plugin<Project> {
                         if (obj.toString().contains("docker.container.env.parameter.")) {
                             String key = obj.toString().substring(31);
                             String value = props.getProperty(obj.toString());
-                            project.getLogger().info("Setting ENV variable: " + key + " with value " + value);
+                            dockerCreateContainer.getLogger().info("Setting ENV variable: " + key + " with value " + value);
                             dockerCreateContainer.withEnvVar(key, value);
                         }
                     }

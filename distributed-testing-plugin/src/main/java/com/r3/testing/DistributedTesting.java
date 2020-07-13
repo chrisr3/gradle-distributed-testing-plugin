@@ -172,14 +172,14 @@ class DistributedTesting implements Plugin<Project> {
 
     private void generateTasksForProject(Project project, Project parentProject, DockerPushImage imagePushTask, BucketingAllocatorTask globalAllocator, List<Task> requestedTasks, String tagToUseForRunningTests) {
         project.getTasks().withType(Test.class, test -> {
-            parentProject.getLogger().info("Evaluating " + test.getPath());
+            test.getLogger().info("Evaluating " + test.getPath());
             if (requestedTasks.contains(test) && !test.hasProperty("ignoreForDistribution")) {
-                parentProject.getLogger().info("Modifying " + test.getPath());
+                test.getLogger().info("Modifying " + test.getPath());
                 Task testListerTask = createTestListingTasks(test, project);
                 globalAllocator.addSource((TestLister) testListerTask, test);
                 Test modifiedTestTask = modifyTestTaskForParallelExecution(project, test, globalAllocator);
             } else {
-                parentProject.getLogger().info("Skipping modification of " + test.getPath() + " as it\'s not scheduled for execution");
+                test.getLogger().info("Skipping modification of " + test.getPath() + " as it\'s not scheduled for execution");
             }
 
             if (!test.hasProperty("ignoreForDistribution")) {
@@ -227,9 +227,9 @@ class DistributedTesting implements Plugin<Project> {
 
     private KubesTest generateParallelTestingTask(Project projectContainingTask, Test task, DockerPushImage imageBuildingTask, String providedTag) {
         String taskName = task.getName();
-        String capitalizedTaskName = capitalize(task.getName());
+        String capitalizedTaskName = capitalize(taskName);
 
-        KubesTest createdParallelTestTask = projectContainingTask.getTasks().create("parallel" + capitalizedTaskName, KubesTest.class, kubesTest -> {
+        return projectContainingTask.getTasks().create("parallel" + capitalizedTaskName, KubesTest.class, kubesTest -> {
             kubesTest.setGroup(GRADLE_GROUP + " Parallel Test Tasks");
             if (StringUtils.isEmpty(providedTag)) {
                 kubesTest.dependsOn(imageBuildingTask);
@@ -241,11 +241,9 @@ class DistributedTesting implements Plugin<Project> {
                 ((KubesTest) task1).dockerTag = !StringUtils.isEmpty(providedTag) ? ImageBuilding.registryName + ":" + providedTag :
                         (imageBuildingTask.getImageName().get() + ":" + imageBuildingTask.getTag().get());
             });
+
+            kubesTest.getLogger().info("Created task: " + kubesTest.getPath() + " to enable testing on kubenetes for task: " + task.getPath());
         });
-
-        projectContainingTask.getLogger().info("Created task: " + createdParallelTestTask.getPath() + " to enable testing on kubenetes for task: " + task.getPath());
-
-        return createdParallelTestTask;
     }
 
     private Test modifyTestTaskForParallelExecution(Project subProject, Test task, BucketingAllocatorTask globalAllocator) {
@@ -274,15 +272,15 @@ class DistributedTesting implements Plugin<Project> {
                 //adding wildcard to each test so they match the ones in the includes list
                 String.join("*", executedTests);
                 Integer fork = getPropertyAsInt(subProject, "dockerFork", 0);
-                subProject.getLogger().info("requesting tests to include in testing task " + task1.getPath() + " (idx: " + fork);
+                task1.getLogger().info("requesting tests to include in testing task " + task1.getPath() + " (idx: " + fork);
                 List<String> includes = globalAllocator.getTestIncludesForForkAndTestTask(fork, (Test) task1);
-                subProject.getLogger().info("got " + includes.size() + " tests to include into testing task " + task1.getPath());
-                subProject.getLogger().info("INCLUDE: " + includes.toString());
-                subProject.getLogger().info("got " + executedTests.size() + " tests to exclude from testing task " + task1.getPath());
-                subProject.getLogger().debug("EXCLUDE: " + executedTests.toString());
+                task1.getLogger().info("got " + includes.size() + " tests to include into testing task " + task1.getPath());
+                task1.getLogger().info("INCLUDE: " + includes.toString());
+                task1.getLogger().info("got " + executedTests.size() + " tests to exclude from testing task " + task1.getPath());
+                task1.getLogger().debug("EXCLUDE: " + executedTests.toString());
 
                 if (includes.size() == 0) {
-                    subProject.getLogger().info("Disabling test execution for testing task " + task1.getPath());
+                    task1.getLogger().info("Disabling test execution for testing task " + task1.getPath());
                     testFilter.excludeTestsMatching("*");
                 }
 
@@ -292,16 +290,16 @@ class DistributedTesting implements Plugin<Project> {
                         intersection.add(test);
                     }
                 }
-                subProject.getLogger().info("got " + intersection.size() + " tests in intersection");
-                subProject.getLogger().info("INTERSECTION: " + intersection.toString());
+                task1.getLogger().info("got " + intersection.size() + " tests in intersection");
+                task1.getLogger().info("INTERSECTION: " + intersection.toString());
                 includes.removeAll(intersection);
 
                 intersection.forEach(exclude -> {
-                    subProject.getLogger().info("excluding: " + exclude + " for testing task " + task1.getPath());
+                    task1.getLogger().info("excluding: " + exclude + " for testing task " + task1.getPath());
                     testFilter.excludeTestsMatching(exclude);
                 });
                 includes.forEach(include -> {
-                    subProject.getLogger().info("including: " + include + " for testing task " + task1.getPath());
+                    task1.getLogger().info("including: " + include + " for testing task " + task1.getPath());
                     testFilter.includeTestsMatching(include);
                 });
                 testFilter.setFailOnNoMatchingTests(false);
@@ -341,6 +339,8 @@ class DistributedTesting implements Plugin<Project> {
                 //we want to set the test scanning classpath to only the output of the sourceSet - this prevents dependencies polluting the list
                 ((ListTests) task1).scanClassPath = !task.getTestClassesDirs().isEmpty() ? task.getTestClassesDirs() : null;
             });
+
+            listTask.getLogger().info("created task: " + listTask.getPath() + " in project: " + subProject + " it dependsOn: " + listTask.dependsOn());
         });
 
         //convenience task to utilize the output of the test listing task to display to local console, useful for debugging missing tests
@@ -351,12 +351,11 @@ class DistributedTesting implements Plugin<Project> {
                 createdListTask.getTestsForFork(
                         getPropertyAsInt(subProject, "dockerFork", 0),
                         getPropertyAsInt(subProject, "dockerForks", 1),
-                        42).forEach(testName -> subProject.getLogger().info(testName));
+                        42).forEach(testName -> task1.getLogger().info(testName));
             });
-        });
 
-        subProject.getLogger().info("created task: " + createdListTask.getPath() + " in project: " + subProject + " it dependsOn: " + createdListTask.dependsOn());
-        subProject.getLogger().info("created task: " + createdPrintTask.getPath() + " in project: " + subProject + " it dependsOn: " + createdPrintTask.dependsOn());
+            printTask.getLogger().info("created task: " + printTask.getPath() + " in project: " + subProject + " it dependsOn: " + printTask.dependsOn());
+        });
 
         return createdListTask;
     }

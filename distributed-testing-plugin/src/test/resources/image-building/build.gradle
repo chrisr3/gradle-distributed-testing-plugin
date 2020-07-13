@@ -1,0 +1,6 @@
+plugins {
+    id 'com.r3.testing.image-building'
+    id 'base'
+}
+
+apply from: 'repositories.gradle'
