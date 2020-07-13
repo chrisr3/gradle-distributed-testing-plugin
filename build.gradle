@@ -5,8 +5,8 @@ import com.r3.testing.PodLogLevel
 //import org.yaml.snakeyaml.Yaml
 
 plugins {
-    id 'com.r3.testing.distributed-testing'
-    id 'com.r3.testing.image-building'
+    id 'com.r3.testing.distributed-testing' apply false
+    id 'com.r3.testing.image-building' apply false
     id 'java'
 }
 
@@ -53,3 +53,5 @@ wrapper {
     gradleVersion = '5.6.4'
     distributionType = Wrapper.DistributionType.ALL
 }
+
+apply plugin: 'com.r3.testing.distributed-testing'
