@@ -11,10 +11,13 @@ import org.gradle.api.Task;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.api.tasks.testing.TestDescriptor;
 import org.gradle.api.tasks.testing.TestResult;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
+import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -39,7 +42,7 @@ class DistributedTesting implements Plugin<Project> {
     }
 
     @Override
-    public void apply(Project project) {
+    public void apply(@NotNull Project project) {
         if (System.getProperty("kubenetize") != null) {
             Properties.setRootProjectType(project.getRootProject().getName());
 
@@ -66,10 +69,10 @@ class DistributedTesting implements Plugin<Project> {
             //4. after each completed test write its name to a file to keep track of what finished for restart purposes
             if (project.getSubprojects().size() != 0) {
                 project.getSubprojects().forEach(subproject -> {
-                    generateTasksForProject(subproject, project, imagePushTask, globalAllocator, requestedTasks, tagToUseForRunningTests);
+                    generateTasksForProject(subproject, imagePushTask, globalAllocator, requestedTasks, tagToUseForRunningTests);
                 });
             } else {
-                generateTasksForProject(project, project, imagePushTask, globalAllocator, requestedTasks, tagToUseForRunningTests);
+                generateTasksForProject(project, imagePushTask, globalAllocator, requestedTasks, tagToUseForRunningTests);
             }
 
             //now we are going to create "super" groupings of the Test tasks, so that it is possible to invoke all submodule tests with a single command
@@ -98,7 +101,7 @@ class DistributedTesting implements Plugin<Project> {
             Set<ParallelTestGroup> userGroups = new HashSet<>(project.getTasks().withType(ParallelTestGroup.class));
 
             userGroups.forEach(testGrouping -> {
-                List<Test> testTasksToRunInGroup = ((ParallelTestGroup) testGrouping).getGroups().stream()
+                List<Test> testTasksToRunInGroup = testGrouping.getGroups().stream()
                         .flatMap(group -> allTestTasksGroupedByType.get(group).stream())
                         .collect(Collectors.toList());
                 //join up these test tasks into a single set of tasks to invoke (node:test, node:integrationTest...)
@@ -170,7 +173,7 @@ class DistributedTesting implements Plugin<Project> {
                 .setDescription("Zip task that can be run locally for testing");
     }
 
-    private void generateTasksForProject(Project project, Project parentProject, DockerPushImage imagePushTask, BucketingAllocatorTask globalAllocator, List<Task> requestedTasks, String tagToUseForRunningTests) {
+    private void generateTasksForProject(Project project, DockerPushImage imagePushTask, BucketingAllocatorTask globalAllocator, List<Task> requestedTasks, String tagToUseForRunningTests) {
         project.getTasks().withType(Test.class, test -> {
             test.getLogger().info("Evaluating " + test.getPath());
             if (requestedTasks.contains(test) && !test.hasProperty("ignoreForDistribution")) {
@@ -309,10 +312,8 @@ class DistributedTesting implements Plugin<Project> {
         task.afterTest(new Closure(this, this) {
             public void doCall(TestDescriptor desc, TestResult result) {
                 if (result.getResultType() == TestResult.ResultType.SUCCESS) {
-                    try {
-                        FileWriter fr = new FileWriter(executedTestsFile, true);
+                    try (Writer fr = new BufferedWriter(new FileWriter(executedTestsFile, true))) {
                         fr.write(desc.getClassName() + "." + desc.getName());
-                        fr.close();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -328,7 +329,7 @@ class DistributedTesting implements Plugin<Project> {
 
     private Task createTestListingTasks(Test task, Project subProject) {
         String taskName = task.getName();
-        String capitalizedTaskName = capitalize(task.getName());
+        String capitalizedTaskName = capitalize(taskName);
         //determine all the tests which are present in this test task.
         //this list will then be shared between the various worker forks
         ListTests createdListTask = subProject.getTasks().create("listTestsFor" + capitalizedTaskName, ListTests.class, listTask -> {
@@ -344,7 +345,7 @@ class DistributedTesting implements Plugin<Project> {
         });
 
         //convenience task to utilize the output of the test listing task to display to local console, useful for debugging missing tests
-        Task createdPrintTask = subProject.getTasks().create("printTestsFor" + capitalizedTaskName, printTask -> {
+        subProject.getTasks().create("printTestsFor" + capitalizedTaskName, printTask -> {
             printTask.setGroup(GRADLE_GROUP);
             printTask.dependsOn(createdListTask);
             printTask.doLast(task1 -> {
