@@ -1,11 +1,15 @@
 package com.r3.testing;
 
 import org.gradle.api.DefaultTask;
+import org.gradle.api.tasks.Console;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.Optional;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+@SuppressWarnings("unused")
 public class ParallelTestGroup extends DefaultTask {
 
     private DistributeTestsBy distribution = DistributeTestsBy.METHOD;
@@ -19,42 +23,53 @@ public class ParallelTestGroup extends DefaultTask {
     private List<String> additionalArgs = new ArrayList<>();
     private List<String> taints = new ArrayList<>();
 
+    @Input
     public DistributeTestsBy getDistribution() {
         return distribution;
     }
 
+    @Input
     public List<String> getGroups() {
         return groups;
     }
 
+    @Input
     public int getShardCount() {
         return shardCount;
     }
 
+    @Input
     public int getCoresToUse() {
         return coresToUse;
     }
 
+    @Input
     public int getGbOfMemory() {
         return gbOfMemory;
     }
 
+    @Console
     public boolean getPrintToStdOut() {
         return printToStdOut;
     }
 
+    @Console
     public PodLogLevel getLogLevel() {
         return logLevel;
     }
 
+    @Optional
+    @Input
     public String getSidecarImage() {
         return sidecarImage;
     }
 
+    @Input
     public List<String> getAdditionalArgs() {
         return additionalArgs;
     }
 
+    @Input
     public List<String> getNodeTaints(){
         return new ArrayList<>(taints);
     }
