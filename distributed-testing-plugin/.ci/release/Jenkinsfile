@@ -7,7 +7,7 @@ killAllExistingBuildsForJob(env.JOB_NAME, env.BUILD_NUMBER.toInteger())
 pipeline {
     agent {
         dockerfile {
-            filename '.ci/Dockerfile'
+            filename 'distributed-testing-plugin/.ci/Dockerfile'
         }
     }
     options { timestamps() }
