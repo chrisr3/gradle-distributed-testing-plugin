@@ -297,7 +297,6 @@ public class KubesTest extends DefaultTask {
         });
 
         int podNumber = podIdx + 1;
-        final AtomicInteger testRetries = new AtomicInteger(0);
         File podLogsDirectory = new File(getProject().getBuildDir(), "pod-logs");
         if (!podLogsDirectory.exists()) {
             podLogsDirectory.mkdirs();
@@ -328,16 +327,7 @@ public class KubesTest extends DefaultTask {
                 CompletableFuture<Integer> waiter = executeBuild(namespace, numberOfPods, podIdx, podName, podLogsDirectory, printOutput, stdOutOs, stdOutIs, errChannelStream, outputFile);
                 int resCode = waiter.join();
                 getLogger().lifecycle("build has ended on on pod " + podName + " (" + podNumber + "/" + numberOfPods + ") with result " + resCode + " , gathering results");
-                Collection<File> binaryResults;
-                //we don't retry on the final attempt as this will crash the build and some pods might not get to finish
-                if (resCode != 0 && testRetries.getAndIncrement() < numberOfRetries - 1) {
-                    downloadTestXmlFromPod(namespace, createdPod);
-                    getLogger().lifecycle("There are test failures in this pod. Retrying failed tests!!!");
-                    throw new InvalidUserCodeException("There are test failures in this pod");
-                } else {
-                    binaryResults = downloadTestXmlFromPod(namespace, createdPod);
-                }
-
+                Collection<File> binaryResults = downloadTestXmlFromPod(namespace, createdPod);
                 getLogger().lifecycle("removing pod " + podName + " (" + podNumber + "/" + numberOfPods + ") after completed build");
                 try (KubernetesClient client = getKubernetesClient()) {
                     deletePodAndWaitForDeletion(NAMESPACE, podName, client);

@@ -66,7 +66,7 @@ class DistributedTesting implements Plugin<Project> {
             project.getTasksByName("forcibleTaskCreation", true);
 
             Set<String> requestedTaskNames = new HashSet<>(project.getGradle().getStartParameter().getTaskNames());
-            List<Task> requestedTasks = requestedTaskNames.stream().map(it -> project.getTasks().getByPath(it)).collect(Collectors.toList());
+            List<Task> requestedTasks = requestedTaskNames.stream().map(it -> project.getTasks().findByPath(it)).collect(Collectors.toList());
 
             //in each subproject
             //1. add the task to determine all tests within the module and register this as a source to the global allocator
