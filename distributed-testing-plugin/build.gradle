@@ -63,6 +63,7 @@ publishing {
         mavenJava(MavenPublication) {
             from components.java
             groupId group
+            artifactId 'gradle-distributed-testing-plugin'
 
             pom {
                 name = 'Distributed Testing Plugin'

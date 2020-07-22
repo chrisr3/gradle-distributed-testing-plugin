@@ -75,6 +75,11 @@ class DistributedTesting implements Plugin<Project> {
                 generateTasksForProject(project, imagePushTask, globalAllocator, requestedTasks, tagToUseForRunningTests);
             }
 
+            // FORCE Gradle to discover the name of every single task in the entire build.
+            // This is UGLY, but we should be able to remove this by integrating better
+            // with Gradle's configuration model.
+            project.getTasksByName("forcibleTaskCreation", true);
+
             //now we are going to create "super" groupings of the Test tasks, so that it is possible to invoke all submodule tests with a single command
             //group all test Tasks by their underlying target task (test/integrationTest/smokeTest ... etc)
             Map<String, List<Test>> allTestTasksGroupedByType;
