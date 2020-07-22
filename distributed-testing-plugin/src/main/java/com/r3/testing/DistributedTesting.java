@@ -58,9 +58,15 @@ class DistributedTesting implements Plugin<Project> {
             globalAllocator.setGroup(GRADLE_GROUP);
             globalAllocator.setDescription("Allocates tests to buckets");
 
+            // FORCE Gradle to discover the name of every single task in the entire build.
+            // This is UGLY, but we should be able to remove this by integrating better
+            // with Gradle's configuration model.
+            //
+            // NOTE: We need to do this before searching for the requested tasks by path.
+            project.getTasksByName("forcibleTaskCreation", true);
 
             Set<String> requestedTaskNames = new HashSet<>(project.getGradle().getStartParameter().getTaskNames());
-            List<Task> requestedTasks = requestedTaskNames.stream().map(it -> project.getTasks().findByPath(it)).collect(Collectors.toList());
+            List<Task> requestedTasks = requestedTaskNames.stream().map(it -> project.getTasks().getByPath(it)).collect(Collectors.toList());
 
             //in each subproject
             //1. add the task to determine all tests within the module and register this as a source to the global allocator
@@ -74,11 +80,6 @@ class DistributedTesting implements Plugin<Project> {
             } else {
                 generateTasksForProject(project, imagePushTask, globalAllocator, requestedTasks, tagToUseForRunningTests);
             }
-
-            // FORCE Gradle to discover the name of every single task in the entire build.
-            // This is UGLY, but we should be able to remove this by integrating better
-            // with Gradle's configuration model.
-            project.getTasksByName("forcibleTaskCreation", true);
 
             //now we are going to create "super" groupings of the Test tasks, so that it is possible to invoke all submodule tests with a single command
             //group all test Tasks by their underlying target task (test/integrationTest/smokeTest ... etc)
