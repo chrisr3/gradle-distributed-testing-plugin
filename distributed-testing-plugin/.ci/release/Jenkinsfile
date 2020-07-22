@@ -26,10 +26,13 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sh "./gradlew " +
-                        " -Dcorda.artifactory.username=\"\${ARTIFACTORY_CREDENTIALS_USR}\" " +
-                        " -Dcorda.artifactory.password=\"\${ARTIFACTORY_CREDENTIALS_PSW}\" " +
-                        " artifactoryPublish "
+                sh '''
+                    cd distributed-testing-plugin
+                    ./gradlew
+                    -Dcorda.artifactory.username="${ARTIFACTORY_CREDENTIALS_USR}"
+                    -Dcorda.artifactory.password="${ARTIFACTORY_CREDENTIALS_PSW}"
+                    artifactoryPublish
+                    '''
             }
         }
     }
